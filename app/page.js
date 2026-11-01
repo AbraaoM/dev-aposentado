@@ -339,73 +339,80 @@ export default function Home() {
   ]
 
   return (
-    <div className="game-screen">
-      {isNight && <div className="night-overlay" />}
+    <div className="game-container">
+      <div className="game-screen">
+        {isNight && <div className="night-overlay" />}
 
-      <div className="status-panel">
-        <div className="status-row">
-          <span>DEV APOSENTADO</span>
-          <span>R${state.money.toFixed(0)}</span>
-        </div>
-        <div className="status-row">
-          <span>Terra: {state.land} ha</span>
-          <span>Plantas: {state.plants.length}</span>
-        </div>
-        <div className="status-row">
-          <span>Animais: {state.animals.length}</span>
-          <span>{state.location?.name || 'Sem local'}</span>
-        </div>
-        <div>ESTRESSE</div>
-        <div className="stress-bar-container">
-          <div
-            className={`stress-bar ${stressClass}`}
-            style={{ width: `${state.stress}%` }}
-          />
-        </div>
-        <div style={{ textAlign: 'right', fontSize: '6px' }}>{state.stress}/100</div>
-      </div>
-
-      <div className="farm-view">
-        <div className="farm-item" style={{ background: '#3d6b35' }} title="Você">👨‍🌾</div>
-        {farmItems.map(item => (
-          <div key={item.key} className="farm-item" title={item.title}>
-            {item.emoji}
+        <div className="status-panel">
+          <div className="status-row">
+            <span>DEV APOSENTADO</span>
+            <span>R${state.money.toFixed(0)}</span>
           </div>
-        ))}
-        {Array.from({ length: Math.max(0, 24 - farmItems.length - 1) }).map((_, i) => (
-          <div key={`empty${i}`} className="farm-item" style={{ background: 'transparent' }} />
-        ))}
+          <div className="status-row">
+            <span>Terra: {state.land} ha</span>
+            <span>Plantas: {state.plants.length}</span>
+          </div>
+          <div className="status-row">
+            <span>Animais: {state.animals.length}</span>
+            <span>{state.location?.name || 'Sem local'}</span>
+          </div>
+          <div>ESTRESSE</div>
+          <div className="stress-bar-container">
+            <div
+              className={`stress-bar ${stressClass}`}
+              style={{ width: `${state.stress}%` }}
+            />
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '6px' }}>{state.stress}/100</div>
+        </div>
+
+        <div className="farm-view">
+          <div className="farm-item" style={{ background: '#3d6b35' }} title="Você">👨‍🌾</div>
+          {farmItems.map(item => (
+            <div key={item.key} className="farm-item" title={item.title}>
+              {item.emoji}
+            </div>
+          ))}
+          {Array.from({ length: Math.max(0, 24 - farmItems.length - 1) }).map((_, i) => (
+            <div key={`empty${i}`} className="farm-item" style={{ background: 'transparent' }} />
+          ))}
+        </div>
+
+        <div className="dialogue-box" ref={dialogueRef}>
+          {state.logs.join('\n')}
+          {loading && '\nCarregando...'}
+          {!state.alive && '\n=== GAME OVER ==='}
+        </div>
+
+        {!state.alive && <div className="game-over">GAME OVER</div>}
+
+        <div className="quick-actions">
+          <button type="button" onClick={() => handleCommand('pescar')}>Pescar</button>
+          <button type="button" onClick={() => handleCommand('plantar milho')}>Plantar</button>
+          <button type="button" onClick={() => handleCommand('colher')}>Colher</button>
+          <button type="button" onClick={() => handleCommand('criar galinha')}>Galinha</button>
+          <button type="button" onClick={() => handleCommand('criar vaca')}>Vaca</button>
+          <button type="button" onClick={() => handleCommand('coletar')}>Coletar</button>
+          <button type="button" onClick={() => handleCommand('status')}>Status</button>
+          <button type="button" onClick={() => handleCommand('clima')}>Clima</button>
+        </div>
+
+        <form onSubmit={onSubmit} className="command-area">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Comando..."
+            disabled={!state.alive && input !== 'reset'}
+            autoFocus
+          />
+          <button type="submit">OK</button>
+        </form>
       </div>
-
-      <div className="dialogue-box" ref={dialogueRef}>
-        {state.logs.join('\n')}
-        {loading && '\nCarregando...'}
-        {!state.alive && '\n=== GAME OVER ==='}
+      <div style={{ color: '#aaa', fontSize: '10px', padding: '10px' }}>
+        <p>Dev Aposentado - Hobby project</p>
+        <p style={{ marginTop: '10px' }}>Tela widescreen. Gráficos no estilo Game Boy / Pokémon.</p>
+        <p style={{ marginTop: '10px' }}>Use os botões ou digite comandos.</p>
       </div>
-
-      {!state.alive && <div className="game-over">GAME OVER</div>}
-
-      <div className="quick-actions">
-        <button type="button" onClick={() => handleCommand('pescar')}>Pescar</button>
-        <button type="button" onClick={() => handleCommand('plantar milho')}>Plantar</button>
-        <button type="button" onClick={() => handleCommand('colher')}>Colher</button>
-        <button type="button" onClick={() => handleCommand('criar galinha')}>Galinha</button>
-        <button type="button" onClick={() => handleCommand('criar vaca')}>Vaca</button>
-        <button type="button" onClick={() => handleCommand('coletar')}>Coletar</button>
-        <button type="button" onClick={() => handleCommand('status')}>Status</button>
-        <button type="button" onClick={() => handleCommand('clima')}>Clima</button>
-      </div>
-
-      <form onSubmit={onSubmit} className="command-area">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Comando..."
-          disabled={!state.alive && input !== 'reset'}
-          autoFocus
-        />
-        <button type="submit">OK</button>
-      </form>
     </div>
   )
 }
