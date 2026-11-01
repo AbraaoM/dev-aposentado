@@ -4,14 +4,14 @@ Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit 
 
 ## Interface
 
-Interface gráfica no estilo **Pokémon Fire Red / Emerald** (GBA):
+Interface gráfica com estilo visual de jogos portáteis clássicos (pixel art, caixas de diálogo):
 - Fonte pixel (`Press Start 2P`)
 - Caixa de diálogo clássica
 - Barra de estresse
 - Visão da fazenda com plantas e animais
 - Botões de ação rápida
 - Overlay de noite
-- Visual de tela de Game Boy Advance
+- Visual inspirado em telas de Game Boy Advance
 
 ## Características
 
@@ -27,7 +27,7 @@ Interface gráfica no estilo **Pokémon Fire Red / Emerald** (GBA):
 - Dia do jogo = dia real.
 - Sistema de dia/noite baseado no horário real.
 - Clima conforme previsão do tempo do local escolhido (Open-Meteo, sem API key).
-- Persistência via Neon Postgres (serverless) ou localStorage como fallback.
+- Persistîncia via Neon Postgres (serverless) ou localStorage como fallback.
 - Feito em Next.js.
 
 ## Como rodar
