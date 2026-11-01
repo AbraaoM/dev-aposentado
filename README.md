@@ -4,7 +4,7 @@ Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit 
 
 ## Interface
 
-Interface gráfica com estilo visual de jogos portáteis clássicos (pixel art, caixas de diálogo):
+Interface gráfica **mobile-first responsiva**, com estilo visual de jogos portáteis clássicos (pixel art, caixas de diálogo):
 - Fonte pixel (`Press Start 2P`)
 - Caixa de diálogo clássica
 - Barra de estresse
@@ -12,7 +12,8 @@ Interface gráfica com estilo visual de jogos portáteis clássicos (pixel art, 
 - Botões de ação rápida
 - Overlay de noite
 - Visual inspirado em telas de Game Boy Advance
-- **Navegação do personagem** no mapa com setas ou WASD
+- **Navegação do personagem** no mapa
+- **D-pad** no mobile + setas/WASD no desktop
 
 ## Características
 
@@ -29,7 +30,7 @@ Interface gráfica com estilo visual de jogos portáteis clássicos (pixel art, 
 - Sistema de dia/noite baseado no horário real.
 - Clima conforme previsão do tempo do local escolhido (Open-Meteo, sem API key).
 - Persistência via Neon Postgres (serverless) ou localStorage como fallback.
-- Feito em Next.js.
+- Feito em Next.js (web, responsivo).
 
 ## Como rodar
 
@@ -54,7 +55,8 @@ Sem `DATABASE_URL` o jogo funciona com localStorage.
 
 ## Controles
 
-- **Setas** ou **WASD**: mover o personagem no mapa
+- **Mobile**: d-pad na tela
+- **Desktop**: setas ou WASD
 - Clique nos botões de ação rápida ou digite comandos
 
 ## Comandos (também via botões)
