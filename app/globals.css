@@ -1,0 +1,53 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Courier New', Courier, monospace;
+  background: #111;
+  color: #0f0;
+  line-height: 1.4;
+  padding: 1rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.terminal {
+  background: #000;
+  border: 2px solid #0f0;
+  padding: 1rem;
+  min-height: 70vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin-bottom: 1rem;
+}
+
+.input-line {
+  display: flex;
+  gap: 0.5rem;
+}
+
+input {
+  flex: 1;
+  background: #000;
+  color: #0f0;
+  border: 1px solid #0f0;
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+button {
+  background: #0f0;
+  color: #000;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0c0;
+}
