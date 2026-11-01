@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const STORAGE_KEY = 'dev-aposentado-save'
 const PLAYER_ID_KEY = 'dev-aposentado-player-id'
+
+const MAP_COLS = 12
+const MAP_ROWS = 8
 
 const INITIAL_STATE = {
   stress: 95,
@@ -18,6 +21,8 @@ const INITIAL_STATE = {
   alive: true,
   billsInterval: 7 * 24 * 60 * 60 * 1000,
   lastBill: Date.now(),
+  playerX: 2,
+  playerY: 3,
 }
 
 const ANIMAL_TYPES = {
@@ -35,6 +40,7 @@ export default function Home() {
   const [playerId, setPlayerId] = useState(null)
   const dialogueRef = useRef(null)
   const saveTimeout = useRef(null)
+  const farmRef = useRef(null)
 
   useEffect(() => {
     let pid = localStorage.getItem(PLAYER_ID_KEY)
@@ -55,6 +61,8 @@ export default function Home() {
           if (parsed.stress > 70) {
             parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
           }
+          if (parsed.playerX == null) parsed.playerX = 2
+          if (parsed.playerY == null) parsed.playerY = 3
           setState(parsed)
           addLog('Progresso carregado do banco de dados (Neon).')
         } else {
@@ -68,6 +76,8 @@ export default function Home() {
               if (parsed.stress > 70) {
                 parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
               }
+              if (parsed.playerX == null) parsed.playerX = 2
+              if (parsed.playerY == null) parsed.playerY = 3
               setState(parsed)
               addLog('Jogo carregado do localStorage (sem Neon configurado).')
             } catch (e) {}
@@ -78,7 +88,10 @@ export default function Home() {
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
           try {
-            setState(JSON.parse(saved))
+            const parsed = JSON.parse(saved)
+            if (parsed.playerX == null) parsed.playerX = 2
+            if (parsed.playerY == null) parsed.playerY = 3
+            setState(parsed)
             addLog('Carregado localmente (API offline).')
           } catch (e) {}
         }
@@ -143,6 +156,28 @@ export default function Home() {
     })
   }
 
+  const movePlayer = useCallback((dx, dy) => {
+    if (!state.alive) return
+    setState(s => {
+      const nx = Math.max(0, Math.min(MAP_COLS - 1, s.playerX + dx))
+      const ny = Math.max(0, Math.min(MAP_ROWS - 1, s.playerY + dy))
+      if (nx === s.playerX && ny === s.playerY) return s
+      return { ...s, playerX: nx, playerY: ny }
+    })
+  }, [state.alive])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { e.preventDefault(); movePlayer(0, -1) }
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { e.preventDefault(); movePlayer(0, 1) }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); movePlayer(-1, 0) }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); movePlayer(1, 0) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [movePlayer])
+
   const handleCommand = async (cmd) => {
     if (!state.alive) {
       addLog('Você está morto. Recarregue para recomeçar ou digite "reset".')
@@ -176,9 +211,9 @@ export default function Home() {
         updateState({
           money: state.money - 100,
           stress: Math.max(0, Math.min(100, state.stress + plantStressChange)),
-          plants: [...state.plants, { type: arg || 'milho', plantedAt: Date.now(), growthDays: 3 }]
+          plants: [...state.plants, { type: arg || 'milho', plantedAt: Date.now(), growthDays: 3, x: state.playerX, y: state.playerY }]
         })
-        addLog(`Plantou ${arg || 'milho'}. Plantar acalma, mas gestão de volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
+        addLog(`Plantou ${arg || 'milho'} na sua posição. Plantar acalma, mas gestão de volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
         break
       case 'harvest':
       case 'colher':
@@ -213,9 +248,9 @@ export default function Home() {
         updateState({
           money: state.money - info.cost,
           stress: Math.max(0, Math.min(100, state.stress + info.stress)),
-          animals: [...state.animals, { type: tipo, boughtAt: Date.now() }]
+          animals: [...state.animals, { type: tipo, boughtAt: Date.now(), x: state.playerX, y: state.playerY }]
         })
-        addLog(`Criou ${info.name}. ${info.stress < 0 ? 'Acalma um pouco.' : 'A gestão pode estressar.'}`)
+        addLog(`Criou ${info.name} na sua posição. ${info.stress < 0 ? 'Acalma um pouco.' : 'A gestão pode estressar.'}`)
         break
       case 'coletar':
       case 'produzir':
@@ -305,6 +340,7 @@ export default function Home() {
       case 'help':
       case '?':
         addLog('Comandos: status, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Movimente com setas ou WASD.')
         break
       default:
         addLog('Comando desconhecido. Digite help.')
@@ -325,18 +361,41 @@ export default function Home() {
 
   const stressClass = state.stress < 40 ? 'low' : state.stress < 70 ? 'medium' : 'high'
 
-  const farmItems = [
-    ...state.plants.slice(0, 20).map((p, i) => ({
-      key: `p${i}`,
-      emoji: PLANT_EMOJIS[p.type] || PLANT_EMOJIS.default,
-      title: p.type
-    })),
-    ...state.animals.slice(0, 12).map((a, i) => ({
-      key: `a${i}`,
-      emoji: ANIMAL_TYPES[a.type]?.emoji || '🐔',
-      title: a.type
-    }))
-  ]
+  // Build map grid
+  const tiles = []
+  for (let y = 0; y < MAP_ROWS; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      const isPlayer = x === state.playerX && y === state.playerY
+      const plantHere = state.plants.find(p => p.x === x && p.y === y)
+      const animalHere = state.animals.find(a => a.x === x && a.y === y)
+      let emoji = ''
+      let title = ''
+      if (isPlayer) {
+        emoji = '👨‍🌾'
+        title = 'Você'
+      } else if (plantHere) {
+        emoji = PLANT_EMOJIS[plantHere.type] || PLANT_EMOJIS.default
+        title = plantHere.type
+      } else if (animalHere) {
+        emoji = ANIMAL_TYPES[animalHere.type]?.emoji || '🐔'
+        title = animalHere.type
+      }
+      tiles.push(
+        <div
+          key={`${x}-${y}`}
+          className="farm-item"
+          title={title}
+          style={{
+            background: isPlayer ? '#3d6b35' : 'rgba(0,0,0,0.05)',
+            gridColumn: x + 1,
+            gridRow: y + 1,
+          }}
+        >
+          {emoji}
+        </div>
+      )
+    }
+  }
 
   return (
     <div className="game-container">
@@ -366,16 +425,8 @@ export default function Home() {
           <div style={{ textAlign: 'right', fontSize: '6px' }}>{state.stress}/100</div>
         </div>
 
-        <div className="farm-view">
-          <div className="farm-item" style={{ background: '#3d6b35' }} title="Você">👨‍🌾</div>
-          {farmItems.map(item => (
-            <div key={item.key} className="farm-item" title={item.title}>
-              {item.emoji}
-            </div>
-          ))}
-          {Array.from({ length: Math.max(0, 24 - farmItems.length - 1) }).map((_, i) => (
-            <div key={`empty${i}`} className="farm-item" style={{ background: 'transparent' }} />
-          ))}
+        <div className="farm-view" ref={farmRef} style={{ display: 'grid', gridTemplateColumns: `repeat(${MAP_COLS}, 1fr)`, gridTemplateRows: `repeat(${MAP_ROWS}, 1fr)`, height: '240px' }}>
+          {tiles}
         </div>
 
         <div className="dialogue-box" ref={dialogueRef}>
@@ -403,7 +454,6 @@ export default function Home() {
             onChange={e => setInput(e.target.value)}
             placeholder="Comando..."
             disabled={!state.alive && input !== 'reset'}
-            autoFocus
           />
           <button type="submit">OK</button>
         </form>
@@ -411,7 +461,8 @@ export default function Home() {
       <div style={{ color: '#aaa', fontSize: '10px', padding: '10px' }}>
         <p>Dev Aposentado - Hobby project</p>
         <p style={{ marginTop: '10px' }}>Tela widescreen. Gráficos no estilo de jogos portáteis clássicos.</p>
-        <p style={{ marginTop: '10px' }}>Use os botões ou digite comandos.</p>
+        <p style={{ marginTop: '10px' }}>Movimente o personagem com setas ou WASD.</p>
+        <p style={{ marginTop: '8px' }}>Use os botões ou digite comandos.</p>
       </div>
     </div>
   )
