@@ -12,6 +12,7 @@ Interface gráfica com estilo visual de jogos portáteis clássicos (pixel art, 
 - Botões de ação rápida
 - Overlay de noite
 - Visual inspirado em telas de Game Boy Advance
+- **Navegação do personagem** no mapa com setas ou WASD
 
 ## Características
 
@@ -27,7 +28,7 @@ Interface gráfica com estilo visual de jogos portáteis clássicos (pixel art, 
 - Dia do jogo = dia real.
 - Sistema de dia/noite baseado no horário real.
 - Clima conforme previsão do tempo do local escolhido (Open-Meteo, sem API key).
-- Persistîncia via Neon Postgres (serverless) ou localStorage como fallback.
+- Persistência via Neon Postgres (serverless) ou localStorage como fallback.
 - Feito em Next.js.
 
 ## Como rodar
@@ -51,13 +52,18 @@ Abra http://localhost:3000
 
 Sem `DATABASE_URL` o jogo funciona com localStorage.
 
+## Controles
+
+- **Setas** ou **WASD**: mover o personagem no mapa
+- Clique nos botões de ação rápida ou digite comandos
+
 ## Comandos (também via botões)
 
 - `status` / `s`: ver estresse, dinheiro, terra, plantas, animais
 - `fish` / `pescar`: pescar (reduz estresse)
-- `plant` / `plantar [tipo]`: plantar (acalma; volume grande estressa)
+- `plant` / `plantar [tipo]`: plantar na posição atual (acalma; volume grande estressa)
 - `harvest` / `colher`: colher
-- `animal` / `criar [galinha|vaca|porco]`: criar animal
+- `animal` / `criar [galinha|vaca|porco]`: criar animal na posição atual
 - `coletar`: coletar produção dos animais
 - `expand` / `expandir`: expandir terra (vira latifundiário, aumenta estresse)
 - `weather` / `clima`: buscar clima atual do local
