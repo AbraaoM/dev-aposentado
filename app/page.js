@@ -3,48 +3,85 @@
 import { useState, useEffect, useRef } from 'react'
 
 const STORAGE_KEY = 'dev-aposentado-save'
+const PLAYER_ID_KEY = 'dev-aposentado-player-id'
 
 const INITIAL_STATE = {
-  stress: 95, // starts very high
-  money: 50000, // from big tech exit / savings
-  land: 5, // hectares
-  plants: [], // {type, plantedAt, growthDays}
+  stress: 95,
+  money: 50000,
+  land: 5,
+  plants: [],
+  animals: [],
   lastUpdate: Date.now(),
-  highStressTime: 0, // ms spent with stress > 70
-  location: null, // {name, lat, lon, timezone}
+  highStressTime: 0,
+  location: null,
   logs: ['Você deu rage quit na big tech. Comprou uma pequena propriedade rural perto de uma cidade pequena. O estresse está nas alturas. As contas vão chegar. Não há objetivos bonitinhos.'],
   alive: true,
-  billsInterval: 7 * 24 * 60 * 60 * 1000, // 7 real days
+  billsInterval: 7 * 24 * 60 * 60 * 1000,
   lastBill: Date.now(),
+}
+
+const ANIMAL_TYPES = {
+  galinha: { cost: 200, stress: -3, produce: 30, name: 'galinha' },
+  vaca: { cost: 2000, stress: 5, produce: 200, name: 'vaca' },
+  porco: { cost: 800, stress: 2, produce: 80, name: 'porco' },
 }
 
 export default function Home() {
   const [state, setState] = useState(INITIAL_STATE)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [playerId, setPlayerId] = useState(null)
   const terminalRef = useRef(null)
+  const saveTimeout = useRef(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // catch up on real time
-        const now = Date.now()
-        const elapsed = now - (parsed.lastUpdate || now)
-        parsed.lastUpdate = now
-        // simple stress decay or increase based on time? for now just update highStressTime
-        if (parsed.stress > 70) {
-          parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
-        }
-        // plant growth: fraction of real time, say 1 real day = 1 growth day but accelerated? user said fraction of real time
-        // for simplicity, plants grow based on real hours * factor
-        setState(parsed)
-        addLog('Jogo carregado. O tempo passou enquanto você estava fora.')
-      } catch (e) {
-        console.error(e)
-      }
+    let pid = localStorage.getItem(PLAYER_ID_KEY)
+    if (!pid) {
+      pid = crypto.randomUUID()
+      localStorage.setItem(PLAYER_ID_KEY, pid)
     }
+    setPlayerId(pid)
+
+    // try load from DB first, fallback local
+    fetch(`/api/game?playerId=${pid}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.state) {
+          const parsed = data.state
+          const now = Date.now()
+          const elapsed = now - (parsed.lastUpdate || now)
+          parsed.lastUpdate = now
+          if (parsed.stress > 70) {
+            parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
+          }
+          setState(parsed)
+          addLog('Progresso carregado do banco de dados (Neon).')
+        } else {
+          const saved = localStorage.getItem(STORAGE_KEY)
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved)
+              const now = Date.now()
+              const elapsed = now - (parsed.lastUpdate || now)
+              parsed.lastUpdate = now
+              if (parsed.stress > 70) {
+                parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
+              }
+              setState(parsed)
+              addLog('Jogo carregado do localStorage (sem Neon configurado).')
+            } catch (e) {}
+          }
+        }
+      })
+      .catch(() => {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          try {
+            setState(JSON.parse(saved))
+            addLog('Carregado localmente (API offline).')
+          } catch (e) {}
+        }
+      })
   }, [])
 
   useEffect(() => {
@@ -52,22 +89,39 @@ export default function Home() {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
-  }, [state])
+    // debounce save to DB
+    if (playerId && state.alive) {
+      clearTimeout(saveTimeout.current)
+      saveTimeout.current = setTimeout(() => {
+        fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, state })
+        }).catch(() => {})
+      }, 1500)
+    }
+  }, [state, playerId])
 
   const addLog = (msg) => {
-    setState(s => ({ ...s, logs: [...s.logs.slice(-50), msg] })) // keep last 50
+    setState(s => ({ ...s, logs: [...s.logs.slice(-50), msg] }))
   }
 
   const updateState = (updates) => {
     setState(s => {
       const next = { ...s, ...updates, lastUpdate: Date.now() }
-      // check heart attack
+      // passive stress from large farm
+      const plantStress = next.plants.length > 15 ? Math.floor((next.plants.length - 15) / 5) * 2 : 0
+      const animalStress = next.animals.length > 8 ? Math.floor((next.animals.length - 8) / 3) * 3 : 0
+      if (plantStress || animalStress) {
+        next.stress = Math.min(100, next.stress + plantStress + animalStress)
+      }
+
       if (next.stress > 70) {
         next.highStressTime = (s.highStressTime || 0) + (Date.now() - s.lastUpdate)
       } else {
-        next.highStressTime = Math.max(0, (s.highStressTime || 0) - 1000 * 60 * 60) // recover slowly
+        next.highStressTime = Math.max(0, (s.highStressTime || 0) - 1000 * 60 * 60)
       }
-      if (next.highStressTime > 1000 * 60 * 60 * 24 * 3 && next.alive) { // 3 real days high stress
+      if (next.highStressTime > 1000 * 60 * 60 * 24 * 3 && next.alive) {
         const chance = Math.random()
         if (chance < 0.3) {
           next.alive = false
@@ -77,9 +131,8 @@ export default function Home() {
           next.highStressTime = 0
         }
       }
-      // bills
       if (Date.now() - next.lastBill > next.billsInterval) {
-        const bill = 2000 + next.land * 100
+        const bill = 2000 + next.land * 100 + next.animals.length * 50
         next.money -= bill
         next.lastBill = Date.now()
         next.logs = [...next.logs, `Conta chegou: -R$${bill}. Patrimônio corroído se você não produzir.`]
@@ -102,8 +155,10 @@ export default function Home() {
     switch (action) {
       case 'status':
       case 's':
-        addLog(`Estresse: ${state.stress}/100 | Dinheiro: R$${state.money.toFixed(0)} | Terra: ${state.land} ha | Plantas: ${state.plants.length}`)
+        addLog(`Estresse: ${state.stress}/100 | Dinheiro: R$${state.money.toFixed(0)} | Terra: ${state.land} ha | Plantas: ${state.plants.length} | Animais: ${state.animals.length}`)
         if (state.location) addLog(`Local: ${state.location.name}`)
+        if (state.plants.length > 15) addLog('⚠️ Grande volume de plantação está te estressando.')
+        if (state.animals.length > 8) addLog('⚠️ Muitos animais para cuidar. Gestão estressante.')
         break
       case 'fish':
       case 'pescar':
@@ -116,12 +171,15 @@ export default function Home() {
           addLog('Sem dinheiro para sementes.')
           break
         }
+        const newPlantCount = state.plants.length + 1
+        let plantStressChange = -8 // planting calms
+        if (newPlantCount > 15) plantStressChange += 12 // management stresses
         updateState({
           money: state.money - 100,
-          stress: state.stress + 5,
+          stress: Math.max(0, Math.min(100, state.stress + plantStressChange)),
           plants: [...state.plants, { type: arg || 'milho', plantedAt: Date.now(), growthDays: 3 }]
         })
-        addLog(`Plantou ${arg || 'milho'}. Pode ser calmo ou estressante dependendo do clima.`)
+        addLog(`Plantou ${arg || 'milho'}. Plantar acalma, mas gestão de volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
         break
       case 'harvest':
       case 'colher':
@@ -129,7 +187,7 @@ export default function Home() {
           addLog('Nada para colher.')
           break
         }
-        const ready = state.plants.filter(p => (Date.now() - p.plantedAt) > p.growthDays * 24 * 60 * 60 * 1000 / 10) // 10x faster than real
+        const ready = state.plants.filter(p => (Date.now() - p.plantedAt) > p.growthDays * 24 * 60 * 60 * 1000 / 10)
         if (ready.length === 0) {
           addLog('Plantas ainda crescendo. Elas crescem em uma fração do tempo real.')
           break
@@ -140,6 +198,39 @@ export default function Home() {
           plants: state.plants.filter(p => !ready.includes(p))
         })
         addLog(`Colheu ${ready.length} plantas. +R$${ready.length * 300}. Um pouco menos de estresse.`)
+        break
+      case 'animal':
+      case 'criar':
+        const tipo = arg || 'galinha'
+        const info = ANIMAL_TYPES[tipo]
+        if (!info) {
+          addLog('Tipos: galinha, vaca, porco')
+          break
+        }
+        if (state.money < info.cost) {
+          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}).`)
+          break
+        }
+        updateState({
+          money: state.money - info.cost,
+          stress: Math.max(0, Math.min(100, state.stress + info.stress)),
+          animals: [...state.animals, { type: tipo, boughtAt: Date.now() }]
+        })
+        addLog(`Criou ${info.name}. ${info.stress < 0 ? 'Acalma um pouco.' : 'A gestão pode estressar.'}`)
+        break
+      case 'coletar':
+      case 'produzir':
+        if (state.animals.length === 0) {
+          addLog('Nenhum animal.')
+          break
+        }
+        let total = 0
+        state.animals.forEach(a => {
+          const info = ANIMAL_TYPES[a.type]
+          if (info) total += info.produce
+        })
+        updateState({ money: state.money + total, stress: Math.max(0, state.stress - 3) })
+        addLog(`Coletou produção dos animais: +R$${total}.`)
         break
       case 'expand':
       case 'expandir':
@@ -167,7 +258,6 @@ export default function Home() {
           const data = await res.json()
           const cur = data.current
           addLog(`Clima atual em ${state.location.name}: ${cur.temperature_2m}°C, precipitação ${cur.precipitation}mm, código ${cur.weather_code}`)
-          // affect stress based on weather
           if (cur.precipitation > 5) {
             updateState({ stress: state.stress + 5 })
             addLog('Chuva forte. Mais estresse para cuidar das coisas.')
@@ -215,7 +305,7 @@ export default function Home() {
         break
       case 'help':
       case '?':
-        addLog('Comandos: status, fish/pescar, plant/plantar [tipo], harvest/colher, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Comandos: status, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
         break
       default:
         addLog('Comando desconhecido. Digite help.')
@@ -231,14 +321,13 @@ export default function Home() {
     }
   }
 
-  // day/night simple based on local time
   const hour = new Date().getHours()
   const isNight = hour < 6 || hour > 18
 
   return (
     <div>
       <h1>Dev Aposentado</h1>
-      <p>Interface de texto. Dia real = dia do jogo. Plantas crescem em fração do tempo real. Clima via Open-Meteo.</p>
+      <p>Interface de texto. Dia real = dia do jogo. Plantas crescem em fração do tempo real. Clima via Open-Meteo. Persistência via Neon (se configurado).</p>
       <div className="terminal" ref={terminalRef}>
         {state.logs.join('\n')}
         {isNight && '\n[É noite no mundo real]'}
