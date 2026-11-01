@@ -410,7 +410,7 @@ export default function Home() {
       </div>
       <div style={{ color: '#aaa', fontSize: '10px', padding: '10px' }}>
         <p>Dev Aposentado - Hobby project</p>
-        <p style={{ marginTop: '10px' }}>Tela widescreen. Gráficos no estilo Game Boy / Pokémon.</p>
+        <p style={{ marginTop: '10px' }}>Tela widescreen. Gráficos no estilo de jogos portáteis clássicos.</p>
         <p style={{ marginTop: '10px' }}>Use os botões ou digite comandos.</p>
       </div>
     </div>
