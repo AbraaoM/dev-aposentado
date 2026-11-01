@@ -40,7 +40,6 @@ export default function Home() {
   const [playerId, setPlayerId] = useState(null)
   const dialogueRef = useRef(null)
   const saveTimeout = useRef(null)
-  const farmRef = useRef(null)
 
   useEffect(() => {
     let pid = localStorage.getItem(PLAYER_ID_KEY)
@@ -340,7 +339,7 @@ export default function Home() {
       case 'help':
       case '?':
         addLog('Comandos: status, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
-        addLog('Movimente com setas ou WASD.')
+        addLog('Movimente com setas, WASD ou o d-pad.')
         break
       default:
         addLog('Comando desconhecido. Digite help.')
@@ -361,7 +360,6 @@ export default function Home() {
 
   const stressClass = state.stress < 40 ? 'low' : state.stress < 70 ? 'medium' : 'high'
 
-  // Build map grid
   const tiles = []
   for (let y = 0; y < MAP_ROWS; y++) {
     for (let x = 0; x < MAP_COLS; x++) {
@@ -425,7 +423,14 @@ export default function Home() {
           <div style={{ textAlign: 'right', fontSize: '6px' }}>{state.stress}/100</div>
         </div>
 
-        <div className="farm-view" ref={farmRef} style={{ display: 'grid', gridTemplateColumns: `repeat(${MAP_COLS}, 1fr)`, gridTemplateRows: `repeat(${MAP_ROWS}, 1fr)`, height: '240px' }}>
+        <div
+          className="farm-view"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${MAP_COLS}, 1fr)`,
+            gridTemplateRows: `repeat(${MAP_ROWS}, 1fr)`,
+          }}
+        >
           {tiles}
         </div>
 
@@ -436,6 +441,13 @@ export default function Home() {
         </div>
 
         {!state.alive && <div className="game-over">GAME OVER</div>}
+
+        <div className="dpad">
+          <button type="button" className="up" onClick={() => movePlayer(0, -1)}>↑</button>
+          <button type="button" className="left" onClick={() => movePlayer(-1, 0)}>←</button>
+          <button type="button" className="right" onClick={() => movePlayer(1, 0)}>→</button>
+          <button type="button" className="down" onClick={() => movePlayer(0, 1)}>↓</button>
+        </div>
 
         <div className="quick-actions">
           <button type="button" onClick={() => handleCommand('pescar')}>Pescar</button>
@@ -458,10 +470,10 @@ export default function Home() {
           <button type="submit">OK</button>
         </form>
       </div>
-      <div style={{ color: '#aaa', fontSize: '10px', padding: '10px' }}>
+      <div className="side-info">
         <p>Dev Aposentado - Hobby project</p>
-        <p style={{ marginTop: '10px' }}>Tela widescreen. Gráficos no estilo de jogos portáteis clássicos.</p>
-        <p style={{ marginTop: '10px' }}>Movimente o personagem com setas ou WASD.</p>
+        <p style={{ marginTop: '10px' }}>Web responsivo. Gráficos no estilo de jogos portáteis clássicos.</p>
+        <p style={{ marginTop: '10px' }}>Mobile: use o d-pad. Desktop: setas ou WASD.</p>
         <p style={{ marginTop: '8px' }}>Use os botões ou digite comandos.</p>
       </div>
     </div>
