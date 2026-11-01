@@ -1,6 +1,17 @@
 # Dev Aposentado
 
-Hobby project: simulação text-based de um dev que se aposenta de big tech, dá rage quit e compra uma pequena propriedade rural perto de uma cidade pequena.
+Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit e compra uma pequena propriedade rural perto de uma cidade pequena.
+
+## Interface
+
+Interface gráfica no estilo **Pokémon Fire Red / Emerald** (GBA):
+- Fonte pixel (`Press Start 2P`)
+- Caixa de diálogo clássica
+- Barra de estresse
+- Visão da fazenda com plantas e animais
+- Botões de ação rápida
+- Overlay de noite
+- Visual de tela de Game Boy Advance
 
 ## Características
 
@@ -17,7 +28,6 @@ Hobby project: simulação text-based de um dev que se aposenta de big tech, dá
 - Sistema de dia/noite baseado no horário real.
 - Clima conforme previsão do tempo do local escolhido (Open-Meteo, sem API key).
 - Persistência via Neon Postgres (serverless) ou localStorage como fallback.
-- Interface apenas de texto por enquanto (gráfica fica para depois).
 - Feito em Next.js.
 
 ## Como rodar
@@ -41,7 +51,7 @@ Abra http://localhost:3000
 
 Sem `DATABASE_URL` o jogo funciona com localStorage.
 
-## Comandos
+## Comandos (também via botões)
 
 - `status` / `s`: ver estresse, dinheiro, terra, plantas, animais
 - `fish` / `pescar`: pescar (reduz estresse)
