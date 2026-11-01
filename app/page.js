@@ -21,17 +21,19 @@ const INITIAL_STATE = {
 }
 
 const ANIMAL_TYPES = {
-  galinha: { cost: 200, stress: -3, produce: 30, name: 'galinha' },
-  vaca: { cost: 2000, stress: 5, produce: 200, name: 'vaca' },
-  porco: { cost: 800, stress: 2, produce: 80, name: 'porco' },
+  galinha: { cost: 200, stress: -3, produce: 30, name: 'galinha', emoji: '🐔' },
+  vaca: { cost: 2000, stress: 5, produce: 200, name: 'vaca', emoji: '🐄' },
+  porco: { cost: 800, stress: 2, produce: 80, name: 'porco', emoji: '🐷' },
 }
+
+const PLANT_EMOJIS = { milho: '🌽', trigo: '🌾', feijao: '🌱', default: '🌱' }
 
 export default function Home() {
   const [state, setState] = useState(INITIAL_STATE)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [playerId, setPlayerId] = useState(null)
-  const terminalRef = useRef(null)
+  const dialogueRef = useRef(null)
   const saveTimeout = useRef(null)
 
   useEffect(() => {
@@ -42,7 +44,6 @@ export default function Home() {
     }
     setPlayerId(pid)
 
-    // try load from DB first, fallback local
     fetch(`/api/game?playerId=${pid}`)
       .then(r => r.json())
       .then(data => {
@@ -86,10 +87,9 @@ export default function Home() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+    if (dialogueRef.current) {
+      dialogueRef.current.scrollTop = dialogueRef.current.scrollHeight
     }
-    // debounce save to DB
     if (playerId && state.alive) {
       clearTimeout(saveTimeout.current)
       saveTimeout.current = setTimeout(() => {
@@ -103,13 +103,12 @@ export default function Home() {
   }, [state, playerId])
 
   const addLog = (msg) => {
-    setState(s => ({ ...s, logs: [...s.logs.slice(-50), msg] }))
+    setState(s => ({ ...s, logs: [...s.logs.slice(-40), msg] }))
   }
 
   const updateState = (updates) => {
     setState(s => {
       const next = { ...s, ...updates, lastUpdate: Date.now() }
-      // passive stress from large farm
       const plantStress = next.plants.length > 15 ? Math.floor((next.plants.length - 15) / 5) * 2 : 0
       const animalStress = next.animals.length > 8 ? Math.floor((next.animals.length - 8) / 3) * 3 : 0
       if (plantStress || animalStress) {
@@ -157,8 +156,8 @@ export default function Home() {
       case 's':
         addLog(`Estresse: ${state.stress}/100 | Dinheiro: R$${state.money.toFixed(0)} | Terra: ${state.land} ha | Plantas: ${state.plants.length} | Animais: ${state.animals.length}`)
         if (state.location) addLog(`Local: ${state.location.name}`)
-        if (state.plants.length > 15) addLog('⚠️ Grande volume de plantação está te estressando.')
-        if (state.animals.length > 8) addLog('⚠️ Muitos animais para cuidar. Gestão estressante.')
+        if (state.plants.length > 15) addLog('Grande volume de plantação está te estressando.')
+        if (state.animals.length > 8) addLog('Muitos animais para cuidar. Gestão estressante.')
         break
       case 'fish':
       case 'pescar':
@@ -172,8 +171,8 @@ export default function Home() {
           break
         }
         const newPlantCount = state.plants.length + 1
-        let plantStressChange = -8 // planting calms
-        if (newPlantCount > 15) plantStressChange += 12 // management stresses
+        let plantStressChange = -8
+        if (newPlantCount > 15) plantStressChange += 12
         updateState({
           money: state.money - 100,
           stress: Math.max(0, Math.min(100, state.stress + plantStressChange)),
@@ -324,25 +323,88 @@ export default function Home() {
   const hour = new Date().getHours()
   const isNight = hour < 6 || hour > 18
 
+  const stressClass = state.stress < 40 ? 'low' : state.stress < 70 ? 'medium' : 'high'
+
+  const farmItems = [
+    ...state.plants.slice(0, 20).map((p, i) => ({
+      key: `p${i}`,
+      emoji: PLANT_EMOJIS[p.type] || PLANT_EMOJIS.default,
+      title: p.type
+    })),
+    ...state.animals.slice(0, 12).map((a, i) => ({
+      key: `a${i}`,
+      emoji: ANIMAL_TYPES[a.type]?.emoji || '🐔',
+      title: a.type
+    }))
+  ]
+
   return (
-    <div>
-      <h1>Dev Aposentado</h1>
-      <p>Interface de texto. Dia real = dia do jogo. Plantas crescem em fração do tempo real. Clima via Open-Meteo. Persistência via Neon (se configurado).</p>
-      <div className="terminal" ref={terminalRef}>
+    <div className="game-screen">
+      {isNight && <div className="night-overlay" />}
+
+      <div className="status-panel">
+        <div className="status-row">
+          <span>DEV APOSENTADO</span>
+          <span>R${state.money.toFixed(0)}</span>
+        </div>
+        <div className="status-row">
+          <span>Terra: {state.land} ha</span>
+          <span>Plantas: {state.plants.length}</span>
+        </div>
+        <div className="status-row">
+          <span>Animais: {state.animals.length}</span>
+          <span>{state.location?.name || 'Sem local'}</span>
+        </div>
+        <div>ESTRESSE</div>
+        <div className="stress-bar-container">
+          <div
+            className={`stress-bar ${stressClass}`}
+            style={{ width: `${state.stress}%` }}
+          />
+        </div>
+        <div style={{ textAlign: 'right', fontSize: '6px' }}>{state.stress}/100</div>
+      </div>
+
+      <div className="farm-view">
+        <div className="farm-item" style={{ background: '#3d6b35' }} title="Você">👨‍🌾</div>
+        {farmItems.map(item => (
+          <div key={item.key} className="farm-item" title={item.title}>
+            {item.emoji}
+          </div>
+        ))}
+        {Array.from({ length: Math.max(0, 24 - farmItems.length - 1) }).map((_, i) => (
+          <div key={`empty${i}`} className="farm-item" style={{ background: 'transparent' }} />
+        ))}
+      </div>
+
+      <div className="dialogue-box" ref={dialogueRef}>
         {state.logs.join('\n')}
-        {isNight && '\n[É noite no mundo real]'}
         {loading && '\nCarregando...'}
         {!state.alive && '\n=== GAME OVER ==='}
       </div>
-      <form onSubmit={onSubmit} className="input-line">
+
+      {!state.alive && <div className="game-over">GAME OVER</div>}
+
+      <div className="quick-actions">
+        <button type="button" onClick={() => handleCommand('pescar')}>Pescar</button>
+        <button type="button" onClick={() => handleCommand('plantar milho')}>Plantar</button>
+        <button type="button" onClick={() => handleCommand('colher')}>Colher</button>
+        <button type="button" onClick={() => handleCommand('criar galinha')}>Galinha</button>
+        <button type="button" onClick={() => handleCommand('criar vaca')}>Vaca</button>
+        <button type="button" onClick={() => handleCommand('coletar')}>Coletar</button>
+        <button type="button" onClick={() => handleCommand('status')}>Status</button>
+        <button type="button" onClick={() => handleCommand('clima')}>Clima</button>
+      </div>
+
+      <form onSubmit={onSubmit} className="command-area">
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Digite um comando (help para ajuda)..."
+          placeholder="Comando..."
           disabled={!state.alive && input !== 'reset'}
           autoFocus
         />
-        <button type="submit">Enviar</button>
+        <button type="submit">OK</button>
       </form>
     </div>
   )
