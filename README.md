@@ -9,11 +9,12 @@ Interface gráfica **mobile-first responsiva**, com estilo visual de jogos port�
 - Caixa de diálogo clássica
 - Barra de estresse
 - Visão da fazenda com plantas e animais
-- Botões de ação rápida
+- Botões de ação rápida (grid adaptável)
 - Overlay de noite
 - Visual inspirado em telas de Game Boy Advance
 - **Navegação do personagem** no mapa
-- **D-pad** no mobile + setas/WASD no desktop
+- **D-pad** no mobile (alvos de toque grandes) + setas/WASD no desktop
+- Viewport otimizado para mobile (sem zoom indesejado)
 
 ## Características
 
@@ -30,7 +31,7 @@ Interface gráfica **mobile-first responsiva**, com estilo visual de jogos port�
 - Sistema de dia/noite baseado no horário real.
 - Clima conforme previsão do tempo do local escolhido (Open-Meteo, sem API key).
 - Persistência via Neon Postgres (serverless) ou localStorage como fallback.
-- Feito em Next.js (web, responsivo).
+- Feito em Next.js (web, responsivo, mobile-first).
 
 ## Como rodar
 
@@ -55,7 +56,7 @@ Sem `DATABASE_URL` o jogo funciona com localStorage.
 
 ## Controles
 
-- **Mobile**: d-pad na tela
+- **Mobile**: d-pad na tela (botões grandes para toque)
 - **Desktop**: setas ou WASD
 - Clique nos botões de ação rápida ou digite comandos
 
