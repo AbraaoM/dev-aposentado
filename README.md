@@ -4,17 +4,15 @@ Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit 
 
 ## Interface
 
-Interface gráfica **mobile-first responsiva**, com estilo visual de jogos portáteis clássicos (pixel art, caixas de diálogo):
+Interface gráfica **mobile-first**, estilo visual de jogos portáteis clássicos (inspirado em Fire Red):
 - Fonte pixel (`Press Start 2P`)
-- Caixa de diálogo clássica
-- Barra de estresse
-- Visão da fazenda com plantas e animais
-- Botões de ação rápida (grid adaptável)
+- Mapa da fazenda em destaque
+- Barra de estresse e status compacto
+- Mensagem curta (sem log permanente)
 - Overlay de noite
-- Visual inspirado em telas de Game Boy Advance
 - **Navegação do personagem** no mapa
-- **D-pad** no mobile (alvos de toque grandes) + setas/WASD no desktop
-- Viewport otimizado para mobile (sem zoom indesejado)
+- **D-pad** no mobile + setas/WASD no desktop
+- Campo de comando para ações
 
 ## Características
 
@@ -56,21 +54,21 @@ Sem `DATABASE_URL` o jogo funciona com localStorage.
 
 ## Controles
 
-- **Mobile**: d-pad na tela (botões grandes para toque)
+- **Mobile**: d-pad na tela
 - **Desktop**: setas ou WASD
-- Clique nos botões de ação rápida ou digite comandos
+- Digite comandos no campo inferior
 
-## Comandos (também via botões)
+## Comandos
 
 - `status` / `s`: ver estresse, dinheiro, terra, plantas, animais
 - `fish` / `pescar`: pescar (reduz estresse)
-- `plant` / `plantar [tipo]`: plantar na posição atual (acalma; volume grande estressa)
+- `plant` / `plantar [tipo]`: plantar na posição atual
 - `harvest` / `colher`: colher
 - `animal` / `criar [galinha|vaca|porco]`: criar animal na posição atual
 - `coletar`: coletar produção dos animais
-- `expand` / `expandir`: expandir terra (vira latifundiário, aumenta estresse)
+- `expand` / `expandir`: expandir terra
 - `weather` / `clima`: buscar clima atual do local
-- `local <cidade>`: definir localização (ex: local Pindamonhangaba)
+- `local <cidade>`: definir localização
 - `reset`: recomeçar
 - `help`: ajuda
 
