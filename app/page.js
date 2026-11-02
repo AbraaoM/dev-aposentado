@@ -6,7 +6,7 @@ const STORAGE_KEY = 'dev-aposentado-save'
 const PLAYER_ID_KEY = 'dev-aposentado-player-id'
 
 const MAP_COLS = 12
-const MAP_ROWS = 8
+const MAP_ROWS = 10
 
 const INITIAL_STATE = {
   stress: 95,
@@ -17,12 +17,11 @@ const INITIAL_STATE = {
   lastUpdate: Date.now(),
   highStressTime: 0,
   location: null,
-  logs: ['Você deu rage quit na big tech. Comprou uma pequena propriedade rural perto de uma cidade pequena. O estresse está nas alturas. As contas vão chegar. Não há objetivos bonitinhos.'],
   alive: true,
   billsInterval: 7 * 24 * 60 * 60 * 1000,
   lastBill: Date.now(),
-  playerX: 2,
-  playerY: 3,
+  playerX: 5,
+  playerY: 5,
 }
 
 const ANIMAL_TYPES = {
@@ -38,7 +37,7 @@ export default function Home() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [playerId, setPlayerId] = useState(null)
-  const dialogueRef = useRef(null)
+  const [message, setMessage] = useState('Use setas/WASD ou d-pad para mover. Digite comandos abaixo.')
   const saveTimeout = useRef(null)
 
   useEffect(() => {
@@ -60,10 +59,10 @@ export default function Home() {
           if (parsed.stress > 70) {
             parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
           }
-          if (parsed.playerX == null) parsed.playerX = 2
-          if (parsed.playerY == null) parsed.playerY = 3
+          if (parsed.playerX == null) parsed.playerX = 5
+          if (parsed.playerY == null) parsed.playerY = 5
           setState(parsed)
-          addLog('Progresso carregado do banco de dados (Neon).')
+          setMessage('Progresso carregado.')
         } else {
           const saved = localStorage.getItem(STORAGE_KEY)
           if (saved) {
@@ -75,10 +74,10 @@ export default function Home() {
               if (parsed.stress > 70) {
                 parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
               }
-              if (parsed.playerX == null) parsed.playerX = 2
-              if (parsed.playerY == null) parsed.playerY = 3
+              if (parsed.playerX == null) parsed.playerX = 5
+              if (parsed.playerY == null) parsed.playerY = 5
               setState(parsed)
-              addLog('Jogo carregado do localStorage (sem Neon configurado).')
+              setMessage('Jogo carregado.')
             } catch (e) {}
           }
         }
@@ -88,10 +87,10 @@ export default function Home() {
         if (saved) {
           try {
             const parsed = JSON.parse(saved)
-            if (parsed.playerX == null) parsed.playerX = 2
-            if (parsed.playerY == null) parsed.playerY = 3
+            if (parsed.playerX == null) parsed.playerX = 5
+            if (parsed.playerY == null) parsed.playerY = 5
             setState(parsed)
-            addLog('Carregado localmente (API offline).')
+            setMessage('Carregado localmente.')
           } catch (e) {}
         }
       })
@@ -99,9 +98,6 @@ export default function Home() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    if (dialogueRef.current) {
-      dialogueRef.current.scrollTop = dialogueRef.current.scrollHeight
-    }
     if (playerId && state.alive) {
       clearTimeout(saveTimeout.current)
       saveTimeout.current = setTimeout(() => {
@@ -113,10 +109,6 @@ export default function Home() {
       }, 1500)
     }
   }, [state, playerId])
-
-  const addLog = (msg) => {
-    setState(s => ({ ...s, logs: [...s.logs.slice(-40), msg] }))
-  }
 
   const updateState = (updates) => {
     setState(s => {
@@ -136,9 +128,9 @@ export default function Home() {
         const chance = Math.random()
         if (chance < 0.3) {
           next.alive = false
-          next.logs = [...next.logs, 'INFARTO! O estresse alto por muito tempo te pegou. Game over.']
+          setMessage('INFARTO! Game over.')
         } else {
-          next.logs = [...next.logs, 'Você quase infartou, mas sobreviveu. O estresse ainda está alto.']
+          setMessage('Você quase infartou, mas sobreviveu.')
           next.highStressTime = 0
         }
       }
@@ -146,9 +138,9 @@ export default function Home() {
         const bill = 2000 + next.land * 100 + next.animals.length * 50
         next.money -= bill
         next.lastBill = Date.now()
-        next.logs = [...next.logs, `Conta chegou: -R$${bill}. Patrimônio corroído se você não produzir.`]
+        setMessage(`Conta chegou: -R$${bill}`)
         if (next.money < 0) {
-          next.logs = [...next.logs, 'Você ficou sem dinheiro. A propriedade está em risco.']
+          setMessage('Sem dinheiro. Propriedade em risco.')
         }
       }
       return next
@@ -179,7 +171,7 @@ export default function Home() {
 
   const handleCommand = async (cmd) => {
     if (!state.alive) {
-      addLog('Você está morto. Recarregue para recomeçar ou digite "reset".')
+      setMessage('Você está morto. Digite reset.')
       return
     }
     const [action, ...args] = cmd.toLowerCase().trim().split(/\s+/)
@@ -188,20 +180,17 @@ export default function Home() {
     switch (action) {
       case 'status':
       case 's':
-        addLog(`Estresse: ${state.stress}/100 | Dinheiro: R$${state.money.toFixed(0)} | Terra: ${state.land} ha | Plantas: ${state.plants.length} | Animais: ${state.animals.length}`)
-        if (state.location) addLog(`Local: ${state.location.name}`)
-        if (state.plants.length > 15) addLog('Grande volume de plantação está te estressando.')
-        if (state.animals.length > 8) addLog('Muitos animais para cuidar. Gestão estressante.')
+        setMessage(`Estresse: ${state.stress}/100 | R$${state.money.toFixed(0)} | Terra: ${state.land}ha | Plantas: ${state.plants.length} | Animais: ${state.animals.length}`)
         break
       case 'fish':
       case 'pescar':
         updateState({ stress: Math.max(0, state.stress - 15), money: state.money + 50 })
-        addLog('Você pescou no lago. Acalmou um pouco. +R$50 de peixe.')
+        setMessage('Pescou. +R$50. Estresse diminuiu.')
         break
       case 'plant':
       case 'plantar':
         if (state.money < 100) {
-          addLog('Sem dinheiro para sementes.')
+          setMessage('Sem dinheiro para sementes.')
           break
         }
         const newPlantCount = state.plants.length + 1
@@ -212,17 +201,17 @@ export default function Home() {
           stress: Math.max(0, Math.min(100, state.stress + plantStressChange)),
           plants: [...state.plants, { type: arg || 'milho', plantedAt: Date.now(), growthDays: 3, x: state.playerX, y: state.playerY }]
         })
-        addLog(`Plantou ${arg || 'milho'} na sua posição. Plantar acalma, mas gestão de volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
+        setMessage(`Plantou ${arg || 'milho'}.${newPlantCount > 15 ? ' Volume alto!' : ''}`)
         break
       case 'harvest':
       case 'colher':
         if (state.plants.length === 0) {
-          addLog('Nada para colher.')
+          setMessage('Nada para colher.')
           break
         }
         const ready = state.plants.filter(p => (Date.now() - p.plantedAt) > p.growthDays * 24 * 60 * 60 * 1000 / 10)
         if (ready.length === 0) {
-          addLog('Plantas ainda crescendo. Elas crescem em uma fração do tempo real.')
+          setMessage('Plantas ainda crescendo.')
           break
         }
         updateState({
@@ -230,18 +219,18 @@ export default function Home() {
           stress: Math.max(0, state.stress - 5),
           plants: state.plants.filter(p => !ready.includes(p))
         })
-        addLog(`Colheu ${ready.length} plantas. +R$${ready.length * 300}. Um pouco menos de estresse.`)
+        setMessage(`Colheu ${ready.length}. +R$${ready.length * 300}`)
         break
       case 'animal':
       case 'criar':
         const tipo = arg || 'galinha'
         const info = ANIMAL_TYPES[tipo]
         if (!info) {
-          addLog('Tipos: galinha, vaca, porco')
+          setMessage('Tipos: galinha, vaca, porco')
           break
         }
         if (state.money < info.cost) {
-          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}).`)
+          setMessage(`Sem dinheiro para ${info.name}.`)
           break
         }
         updateState({
@@ -249,12 +238,12 @@ export default function Home() {
           stress: Math.max(0, Math.min(100, state.stress + info.stress)),
           animals: [...state.animals, { type: tipo, boughtAt: Date.now(), x: state.playerX, y: state.playerY }]
         })
-        addLog(`Criou ${info.name} na sua posição. ${info.stress < 0 ? 'Acalma um pouco.' : 'A gestão pode estressar.'}`)
+        setMessage(`Criou ${info.name}.`)
         break
       case 'coletar':
       case 'produzir':
         if (state.animals.length === 0) {
-          addLog('Nenhum animal.')
+          setMessage('Nenhum animal.')
           break
         }
         let total = 0
@@ -263,12 +252,12 @@ export default function Home() {
           if (info) total += info.produce
         })
         updateState({ money: state.money + total, stress: Math.max(0, state.stress - 3) })
-        addLog(`Coletou produção dos animais: +R$${total}.`)
+        setMessage(`Coletou +R$${total}`)
         break
       case 'expand':
       case 'expandir':
         if (state.money < 10000) {
-          addLog('Precisa de mais dinheiro para expandir e virar latifundiário.')
+          setMessage('Dinheiro insuficiente para expandir.')
           break
         }
         updateState({
@@ -276,12 +265,12 @@ export default function Home() {
           land: state.land + 5,
           stress: state.stress + 25
         })
-        addLog('Expandiu a propriedade. Atividades estressantes para virar latifundiário. Estresse aumentou.')
+        setMessage('Expandiu. Estresse aumentou.')
         break
       case 'weather':
       case 'clima':
         if (!state.location) {
-          addLog('Defina uma localização primeiro com "local <cidade>"')
+          setMessage('Defina local com "local <cidade>"')
           break
         }
         setLoading(true)
@@ -290,26 +279,23 @@ export default function Home() {
           const res = await fetch(url)
           const data = await res.json()
           const cur = data.current
-          addLog(`Clima atual em ${state.location.name}: ${cur.temperature_2m}°C, precipitação ${cur.precipitation}mm, código ${cur.weather_code}`)
+          setMessage(`${cur.temperature_2m}°C, precip ${cur.precipitation}mm`)
           if (cur.precipitation > 5) {
             updateState({ stress: state.stress + 5 })
-            addLog('Chuva forte. Mais estresse para cuidar das coisas.')
           } else if (cur.temperature_2m > 30) {
             updateState({ stress: state.stress + 3 })
-            addLog('Calor. Estressante.')
           } else {
             updateState({ stress: Math.max(0, state.stress - 2) })
-            addLog('Clima bom. Um pouco mais calmo.')
           }
         } catch (e) {
-          addLog('Erro ao buscar clima.')
+          setMessage('Erro ao buscar clima.')
         }
         setLoading(false)
         break
       case 'local':
       case 'location':
         if (!arg) {
-          addLog('Uso: local <nome da cidade>')
+          setMessage('Uso: local <cidade>')
           break
         }
         setLoading(true)
@@ -322,34 +308,32 @@ export default function Home() {
             updateState({
               location: { name: loc.name, lat: loc.latitude, lon: loc.longitude, timezone: loc.timezone }
             })
-            addLog(`Localização definida: ${loc.name}, ${loc.country}. Lat ${loc.latitude}, Lon ${loc.longitude}`)
+            setMessage(`Local: ${loc.name}`)
           } else {
-            addLog('Cidade não encontrada.')
+            setMessage('Cidade não encontrada.')
           }
         } catch (e) {
-          addLog('Erro na geocodificação.')
+          setMessage('Erro na geocodificação.')
         }
         setLoading(false)
         break
       case 'reset':
         localStorage.removeItem(STORAGE_KEY)
         setState(INITIAL_STATE)
-        addLog('Jogo resetado.')
+        setMessage('Jogo resetado.')
         break
       case 'help':
       case '?':
-        addLog('Comandos: status, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
-        addLog('Movimente com setas, WASD ou o d-pad.')
+        setMessage('Comandos: status, pescar, plantar, colher, criar, coletar, expandir, clima, local, reset')
         break
       default:
-        addLog('Comando desconhecido. Digite help.')
+        setMessage('Comando desconhecido. help')
     }
   }
 
   const onSubmit = (e) => {
     e.preventDefault()
     if (input.trim()) {
-      addLog(`> ${input}`)
       handleCommand(input)
       setInput('')
     }
@@ -384,7 +368,7 @@ export default function Home() {
           className="farm-item"
           title={title}
           style={{
-            background: isPlayer ? '#3d6b35' : 'rgba(0,0,0,0.05)',
+            background: isPlayer ? '#3d6b35' : 'rgba(0,0,0,0.04)',
             gridColumn: x + 1,
             gridRow: y + 1,
           }}
@@ -434,10 +418,10 @@ export default function Home() {
           {tiles}
         </div>
 
-        <div className="dialogue-box" ref={dialogueRef}>
-          {state.logs.join('\n')}
-          {loading && '\nCarregando...'}
-          {!state.alive && '\n=== GAME OVER ==='}
+        <div className="message-box">
+          {message}
+          {loading && ' ...'}
+          {!state.alive && ' === GAME OVER ==='}
         </div>
 
         {!state.alive && <div className="game-over">GAME OVER</div>}
@@ -449,17 +433,6 @@ export default function Home() {
           <button type="button" className="down" onClick={() => movePlayer(0, 1)}>↓</button>
         </div>
 
-        <div className="quick-actions">
-          <button type="button" onClick={() => handleCommand('pescar')}>Pescar</button>
-          <button type="button" onClick={() => handleCommand('plantar milho')}>Plantar</button>
-          <button type="button" onClick={() => handleCommand('colher')}>Colher</button>
-          <button type="button" onClick={() => handleCommand('criar galinha')}>Galinha</button>
-          <button type="button" onClick={() => handleCommand('criar vaca')}>Vaca</button>
-          <button type="button" onClick={() => handleCommand('coletar')}>Coletar</button>
-          <button type="button" onClick={() => handleCommand('status')}>Status</button>
-          <button type="button" onClick={() => handleCommand('clima')}>Clima</button>
-        </div>
-
         <form onSubmit={onSubmit} className="command-area">
           <input
             value={input}
@@ -469,12 +442,6 @@ export default function Home() {
           />
           <button type="submit">OK</button>
         </form>
-      </div>
-      <div className="side-info">
-        <p>Dev Aposentado - Hobby project</p>
-        <p style={{ marginTop: '10px' }}>Web responsivo. Gráficos no estilo de jogos portáteis clássicos.</p>
-        <p style={{ marginTop: '10px' }}>Mobile: use o d-pad. Desktop: setas ou WASD.</p>
-        <p style={{ marginTop: '8px' }}>Use os botões ou digite comandos.</p>
       </div>
     </div>
   )
