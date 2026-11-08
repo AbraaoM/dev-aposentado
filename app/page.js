@@ -79,12 +79,37 @@ function rollAttributes(classKey, companyKey) {
   return attrs
 }
 
+function formatStatus(state) {
+  const a = state.attributes || { logica: '-', carisma: '-', resiliencia: '-', gestao: '-' }
+  const lines = [
+    '========== STATUS ==========',
+    `Dinheiro:     R$${Number(state.money || 0).toFixed(0)}`,
+    `Estresse:     ${state.stress}/100`,
+    `Terra:        ${state.land} ha`,
+    `Plantas:      ${state.plants?.length || 0}`,
+    `Animais:      ${state.animals?.length || 0}`,
+    '---',
+    `Classe:       ${state.className || '-'}`,
+    `Empresa:      ${state.companyName || '-'}`,
+    '---',
+    `Lógica:       ${a.logica}/10`,
+    `Carisma:      ${a.carisma}/10`,
+    `Resiliência:   ${a.resiliencia}/10`,
+    `Gestão:        ${a.gestao}/10`,
+    '============================'
+  ]
+  if (state.location) lines.splice(6, 0, `Local:        ${state.location.name}`)
+  if ((state.plants?.length || 0) > 15) lines.push('Grande volume de plantação está te estressando.')
+  if ((state.animals?.length || 0) > 8) lines.push('Muitos animais para cuidar. Gestão estressante.')
+  return lines
+}
+
 export default function Home() {
   const [state, setState] = useState(null)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [playerId, setPlayerId] = useState(null)
-  const [phase, setPhase] = useState('class') // class | company | playing
+  const [phase, setPhase] = useState('class')
   const [selectedClass, setSelectedClass] = useState(null)
   const logRef = useRef(null)
   const saveTimeout = useRef(null)
@@ -154,6 +179,10 @@ export default function Home() {
     setState(s => s ? { ...s, logs: [...s.logs.slice(-40), msg] } : s)
   }
 
+  const addLogs = (msgs) => {
+    setState(s => s ? { ...s, logs: [...s.logs.slice(-40), ...msgs] } : s)
+  }
+
   const updateState = (updates) => {
     setState(s => {
       if (!s) return s
@@ -213,7 +242,8 @@ export default function Home() {
         isGod ? 'MILAGRE: Você é o 1% que é bom em tudo. Os outros gerentes choram.' : '',
         `Atributos — Lógica: ${attrs.logica} | Carisma: ${attrs.carisma} | Resiliência: ${attrs.resiliencia} | Gestão: ${attrs.gestao}`,
         `Dinheiro inicial: R$${comp.money} | Estresse inicial: ${comp.stress}/100`,
-        'Comprou uma pequena propriedade rural perto de uma cidade pequena. As contas vão chegar. Não há objetivos bonitinhos.'
+        'Comprou uma pequena propriedade rural perto de uma cidade pequena. As contas vão chegar. Não há objetivos bonitinhos.',
+        'Digite status para ver seus atributos e recursos.'
       ].filter(Boolean),
       alive: true,
       billsInterval: 7 * 24 * 60 * 60 * 1000,
@@ -261,12 +291,7 @@ export default function Home() {
     switch (action) {
       case 'status':
       case 's':
-        addLog(`Estresse: ${state.stress}/100 | Dinheiro: R$${state.money.toFixed(0)} | Terra: ${state.land} ha | Plantas: ${state.plants.length} | Animais: ${state.animals.length}`)
-        addLog(`Classe: ${state.className} | Empresa: ${state.companyName}`)
-        addLog(`Lógica: ${state.attributes.logica} | Carisma: ${state.attributes.carisma} | Resiliência: ${state.attributes.resiliencia} | Gestão: ${state.attributes.gestao}`)
-        if (state.location) addLog(`Local: ${state.location.name}`)
-        if (state.plants.length > 15) addLog('Grande volume de plantação está te estressando.')
-        if (state.animals.length > 8) addLog('Muitos animais para cuidar. Gestão estressante.')
+        addLogs(formatStatus(state))
         break
       case 'fish':
       case 'pescar':
