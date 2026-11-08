@@ -64,6 +64,14 @@ const ANIMAL_TYPES = {
   porco: { cost: 800, stress: 2, produce: 80, name: 'porco' },
 }
 
+const RESEARCH = {
+  solo: { cost: 8000, name: 'análise de solo' },
+  agua: { cost: 12000, name: 'pesquisa de água subterrânea' },
+  vento: { cost: 6000, name: 'estudo de vento' },
+  insolacao: { cost: 5000, name: 'estudo de insolação' },
+  completa: { cost: 25000, name: 'pesquisa completa' }
+}
+
 const VISIBLE_NATURAL = [
   'área alagada', 'mata nativa', 'pasto aberto', 'encosta', 'terreno plano',
   'nascente visível', 'rio próximo', 'erosão visível', 'muita pedra na superfície'
@@ -130,7 +138,8 @@ function makeProperty(id, forcedPrice = null) {
     natural: Array.isArray(nat) ? nat : [nat],
     benfeitorias: ben,
     localizacao: Array.isArray(loc) ? loc : [loc],
-    hidden
+    hidden,
+    revealed: { solo: false, agua: false, vento: false, insolacao: false }
   }
 }
 
@@ -177,6 +186,18 @@ function rollAttributes(classKey, companyKey) {
   return attrs
 }
 
+function viabilityPenalty(state) {
+  if (!state.property || state.plants.length < 20) return 0
+  const p = state.property
+  let penalty = 0
+  const revealed = p.revealed || {}
+  if (!revealed.solo) penalty += 8
+  if (!revealed.agua) penalty += 6
+  if (!revealed.insolacao) penalty += 4
+  if (state.plants.length > 40) penalty += 10
+  return penalty
+}
+
 function formatStatus(state) {
   const a = state.attributes || { logica: '-', carisma: '-', resiliencia: '-', gestao: '-' }
   const p = state.property
@@ -202,13 +223,13 @@ function formatStatus(state) {
     lines.push(`Natural (visível): ${p.natural.join(', ')}`)
     lines.push(`Benfeitorias: ${p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'}`)
     lines.push(`Localização: ${p.localizacao.join(', ')}`)
-    if (p.hidden && p.revealed) {
-      lines.push(`Solo: ${p.hidden.solo}`)
-      lines.push(`Água subterrânea: ${p.hidden.aguaSubterranea}`)
-      lines.push(`Vento: ${p.hidden.vento}`)
-      lines.push(`Insolação: ${p.hidden.insolacao}`)
-    } else {
-      lines.push('(Atributos ocultos: solo, água para poço, vento, insolação — use "investigar")')
+    const rev = p.revealed || {}
+    lines.push(`Solo: ${rev.solo ? p.hidden.solo : 'desconhecido (pesquisa)'}`)
+    lines.push(`Água subterrânea: ${rev.agua ? p.hidden.aguaSubterranea : 'desconhecida (pesquisa)'}`)
+    lines.push(`Vento: ${rev.vento ? p.hidden.vento : 'desconhecido (pesquisa)'}`)
+    lines.push(`Insolação: ${rev.insolacao ? p.hidden.insolacao : 'desconhecida (pesquisa)'}`)
+    if (state.plants.length >= 20 && viabilityPenalty(state) > 0) {
+      lines.push(`Aviso: volume alto sem pesquisa completa gera estresse extra (${viabilityPenalty(state)}).`)
     }
   }
   lines.push('============================')
@@ -305,8 +326,9 @@ export default function Home() {
       const next = { ...s, ...updates, lastUpdate: Date.now() }
       const plantStress = next.plants.length > 15 ? Math.floor((next.plants.length - 15) / 5) * 2 : 0
       const animalStress = next.animals.length > 8 ? Math.floor((next.animals.length - 8) / 3) * 3 : 0
-      if (plantStress || animalStress) {
-        next.stress = Math.min(100, next.stress + plantStress + animalStress)
+      const viability = viabilityPenalty(next)
+      if (plantStress || animalStress || viability) {
+        next.stress = Math.min(100, next.stress + plantStress + animalStress + viability)
       }
 
       if (next.stress > 70) {
@@ -364,7 +386,9 @@ export default function Home() {
         `Natural (visível): ${prop.natural.join(', ')}.`,
         `Benfeitorias: ${prop.benfeitorias.length ? prop.benfeitorias.join(', ') : 'somente terreno'}.`,
         `Localização: ${prop.localizacao.join(', ')}.`,
-        'Alguns detalhes (solo, água subterrânea, vento, insolação) só aparecem depois de investigar.',
+        'No início, pequenas plantações funcionam em qualquer terreno.',
+        'Com volume alto, pesquisas pagas (solo, água, vento, insolação) passam a ser necessárias.',
+        'Comandos de pesquisa: pesquisa solo | agua | vento | insolacao | completa',
         'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
       ].filter(Boolean),
@@ -376,7 +400,7 @@ export default function Home() {
       companyKey,
       companyName: comp.name,
       attributes: attrs,
-      property: { ...prop, revealed: false }
+      property: prop
     }
     setState(newState)
     setPhase('playing')
@@ -432,22 +456,38 @@ export default function Home() {
       case 's':
         addLogs(formatStatus(state))
         break
-      case 'investigar':
-      case 'analisar':
+      case 'pesquisa':
+      case 'pesquisar': {
         if (!state.property) {
           addLog('Nenhuma propriedade.')
           break
         }
-        if (state.property.revealed) {
-          addLog('Você já investigou esta propriedade.')
+        const tipo = arg || 'completa'
+        const info = RESEARCH[tipo]
+        if (!info) {
+          addLog('Pesquisas: solo, agua, vento, insolacao, completa')
           break
         }
+        if (state.money < info.cost) {
+          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}).`)
+          break
+        }
+        const rev = { ...(state.property.revealed || {}) }
+        if (tipo === 'completa') {
+          rev.solo = rev.agua = rev.vento = rev.insolacao = true
+        } else {
+          rev[tipo] = true
+        }
         updateState({
-          stress: Math.min(100, state.stress + 5),
-          property: { ...state.property, revealed: true }
+          money: state.money - info.cost,
+          property: { ...state.property, revealed: rev }
         })
-        addLog('Você investigou o terreno (custo de estresse). Detalhes ocultos revelados no status.')
+        addLog(`Comprou ${info.name} por R$${info.cost}. Detalhes revelados no status.`)
+        if (state.plants.length >= 20) {
+          addLog('Com volume alto, conhecer o terreno reduz o estresse de gestão.')
+        }
         break
+      }
       case 'fish':
       case 'pescar':
         updateState({ stress: Math.max(0, state.stress - 15), money: state.money + 50 })
@@ -468,6 +508,9 @@ export default function Home() {
           plants: [...state.plants, { type: arg || 'milho', plantedAt: Date.now(), growthDays: 3 }]
         })
         addLog(`Plantou ${arg || 'milho'}. Plantar acalma, mas gestão de volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
+        if (newPlantCount >= 20) {
+          addLog('Volume alto. Pesquisas do terreno passam a ser importantes para viabilidade.')
+        }
         break
       case 'harvest':
       case 'colher':
@@ -597,7 +640,7 @@ export default function Home() {
         break
       case 'help':
       case '?':
-        addLog('Comandos: status, investigar, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Comandos: status, pesquisa [solo|agua|vento|insolacao|completa], fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
         break
       default:
         addLog('Comando desconhecido. Digite help.')
@@ -630,7 +673,7 @@ export default function Home() {
       properties.map(p => {
         const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
         const ben = p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'
-        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   (Detalhes ocultos: solo, água, vento, insolação)`
+        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   (Detalhes ocultos: solo, água, vento, insolação — pesquisas pagas depois)`
       }).join('\n\n') +
       `\n\nDigite o número da propriedade que deseja comprar:`
     : ''
