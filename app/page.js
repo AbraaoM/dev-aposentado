@@ -37,21 +37,21 @@ const CLASSES = {
 const COMPANIES = {
   bigtech: {
     name: 'Big Tech',
-    money: 450000,
+    money: 8000000,
     stress: 98,
     attrBonus: 2,
     desc: 'Mais dinheiro e atributos melhores. Estresse no teto. Pode infartar no primeiro dia.'
   },
   grande: {
     name: 'Empresa Grande',
-    money: 180000,
+    money: 2500000,
     stress: 75,
     attrBonus: 0,
     desc: 'Atributos medianos. Estresse alto, mas não insano.'
   },
   local: {
     name: 'Empresa Local',
-    money: 90000,
+    money: 900000,
     stress: 50,
     attrBonus: -1,
     desc: 'Atributos mais baixos. Estresse inicial bem menor.'
@@ -90,31 +90,57 @@ function pick(arr, n = 1) {
   return n === 1 ? res[0] : res
 }
 
+function makeProperty(id, forcedPrice = null) {
+  const ha = 2 + Math.floor(Math.random() * 48)
+  let price
+  if (forcedPrice !== null) {
+    price = forcedPrice
+  } else {
+    const r = Math.random()
+    if (r < 0.35) price = 350000 + Math.floor(Math.random() * 650000)
+    else if (r < 0.6) price = 1000000 + Math.floor(Math.random() * 4000000)
+    else if (r < 0.85) price = 5000000 + Math.floor(Math.random() * 15000000)
+    else price = 20000000 + Math.floor(Math.random() * 20000000)
+  }
+  price = Math.max(350000, Math.min(40000000, price))
+  const nat = pick(NATURAL, 1 + Math.floor(Math.random() * 2))
+  const ben = pick(BENFEITORIAS, 1 + Math.floor(Math.random() * 2))
+  const loc = pick(LOCAIS, 2 + Math.floor(Math.random() * 2))
+  return {
+    id,
+    ha,
+    price,
+    natural: Array.isArray(nat) ? nat : [nat],
+    benfeitorias: Array.isArray(ben) ? ben : [ben],
+    localizacao: Array.isArray(loc) ? loc : [loc]
+  }
+}
+
 function generateProperties() {
-  const count = 5 + Math.floor(Math.random() * 16) // 5 a 20
+  const count = 5 + Math.floor(Math.random() * 16)
   const props = []
   for (let i = 1; i <= count; i++) {
-    const ha = 2 + Math.floor(Math.random() * 28) // 2 a 30 ha
-    const basePrice = ha * (8000 + Math.floor(Math.random() * 7000))
-    const nat = pick(NATURAL, 1 + Math.floor(Math.random() * 2))
-    const ben = pick(BENFEITORIAS, 1 + Math.floor(Math.random() * 2))
-    const loc = pick(LOCAIS, 2 + Math.floor(Math.random() * 2))
-    let price = basePrice
-    if (loc.includes('energia elétrica')) price += 15000
-    if (loc.includes('agua encanada')) price += 12000
-    if (loc.includes('esgoto')) price += 8000
-    if (loc.includes('estrada asfaltada próxima')) price += 20000
-    if (loc.includes('isolada') || loc.includes('sem energia')) price -= 10000
-    price = Math.max(20000, price)
-    props.push({
-      id: i,
-      ha,
-      price,
-      natural: Array.isArray(nat) ? nat : [nat],
-      benfeitorias: Array.isArray(ben) ? ben : [ben],
-      localizacao: Array.isArray(loc) ? loc : [loc]
-    })
+    props.push(makeProperty(i))
   }
+
+  const localMoney = COMPANIES.local.money
+  const bigMoney = COMPANIES.bigtech.money
+
+  const cheapForLocal = props.filter(p => p.price <= localMoney).length
+  if (cheapForLocal < 1) {
+    const idx = Math.floor(Math.random() * props.length)
+    props[idx] = makeProperty(props[idx].id, 350000 + Math.floor(Math.random() * 200000))
+  }
+
+  let cheapForBig = props.filter(p => p.price <= bigMoney).length
+  while (cheapForBig < 3) {
+    const idx = Math.floor(Math.random() * props.length)
+    if (props[idx].price > bigMoney) {
+      props[idx] = makeProperty(props[idx].id, 350000 + Math.floor(Math.random() * (bigMoney - 350000)))
+      cheapForBig++
+    }
+  }
+
   return props
 }
 
@@ -552,7 +578,7 @@ export default function Home() {
 
   const companyPrompt = selectedClass
     ? `Você escolheu: ${CLASSES[selectedClass].name}\n\nEscolha a empresa de origem:\n\n` +
-      Object.entries(COMPANIES).map(([k, v]) => `${k} — ${v.name}\n   ${v.desc}\n   Dinheiro: R$${v.money} | Estresse inicial: ${v.stress}`).join('\n\n') +
+      Object.entries(COMPANIES).map(([k, v]) => `${k} — ${v.name}\n   ${v.desc}\n   Dinheiro: R$${v.money.toLocaleString('pt-BR')} | Estresse inicial: ${v.stress}`).join('\n\n') +
       `\n\nDigite: bigtech, grande ou local`
     : ''
 
@@ -560,7 +586,7 @@ export default function Home() {
     ? `Propriedades disponíveis (${properties.length}):\n\n` +
       properties.map(p => {
         const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
-        return `#${p.id} — ${p.ha} ha — R$${p.price}${can}\n   Natural: ${p.natural.join(', ')}\n   Benfeitorias: ${p.benfeitorias.join(', ')}\n   Localização: ${p.localizacao.join(', ')}`
+        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural: ${p.natural.join(', ')}\n   Benfeitorias: ${p.benfeitorias.join(', ')}\n   Localização: ${p.localizacao.join(', ')}`
       }).join('\n\n') +
       `\n\nDigite o número da propriedade que deseja comprar:`
     : ''
