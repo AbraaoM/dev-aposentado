@@ -6,9 +6,38 @@ Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit 
 
 **Somente texto** (terminal).
 
+## Criação de personagem
+
+### Classes (carreira de origem)
+
+| Classe | Descrição |
+|--------|----------|
+| `especialista` | Desenvolvedor Especialista — Lógica no máximo. "Sabe exatamente por que o código quebrou. Só não sabe explicar para o PM." |
+| `pm` | Product Manager — Carisma alto, lógica baixa. "Alinha expectativas. Principalmente as que ninguém pediu." |
+| `devops` | DevOps / SRE — Resiliência alta. "O sistema está no ar. Você não está." |
+| `qa` | QA / Testador — "Encontra o bug que o especialista jurou que não existia." |
+| `gerente` | Gerente de TI — 1% de chance de ser bom em tudo. "Os outros 99% são reuniões." |
+
+### Empresa de origem
+
+| Empresa | Dinheiro | Estresse | Atributos |
+|---------|----------|----------|-----------|
+| `bigtech` | R$180.000 | 98 | +2 (melhor) |
+| `grande` | R$70.000 | 75 | base |
+| `local` | R$35.000 | 50 | -1 (pior) |
+
+Big Tech pode infartar até no primeiro dia.
+
+### Atributos
+
+- Lógica
+- Carisma
+- Resiliência
+- Gestão
+
 ## Características
 
-- Barra de estresse inicia altíssima.
+- Barra de estresse inicia de acordo com a empresa.
 - Plantar acalma, mas gestão de grande volume de plantação estressa.
 - Animais de fazenda: galinha (acalma), vaca e porco (gestão pode estressar).
 - Atividades rurais podem acalmar ou estressar mais.
@@ -44,9 +73,9 @@ Abra http://localhost:3000
 
 Sem `DATABASE_URL` o jogo funciona com localStorage.
 
-## Comandos
+## Comandos (após criação)
 
-- `status` / `s`: ver estresse, dinheiro, terra, plantas, animais
+- `status` / `s`: ver estresse, dinheiro, terra, plantas, animais e atributos
 - `fish` / `pescar`: pescar (reduz estresse)
 - `plant` / `plantar [tipo]`: plantar (acalma; volume grande estressa)
 - `harvest` / `colher`: colher
@@ -55,7 +84,7 @@ Sem `DATABASE_URL` o jogo funciona com localStorage.
 - `expand` / `expandir`: expandir terra (vira latifundiário, aumenta estresse)
 - `weather` / `clima`: buscar clima atual do local
 - `local <cidade>`: definir localização (ex: local Pindamonhangaba)
-- `reset`: recomeçar
+- `reset`: recomeçar (escolhe classe de novo)
 - `help`: ajuda
 
 ## Notas
