@@ -72,6 +72,11 @@ const RESEARCH = {
   completa: { cost: 25000, stress: 8, name: 'pesquisa completa' }
 }
 
+const INSTALL = {
+  agua: { cost: 15000, stress: 10, name: 'água encanada' },
+  energia: { cost: 18000, stress: 12, name: 'energia elétrica' }
+}
+
 const VISIBLE_NATURAL = [
   'área alagada', 'mata nativa', 'pasto aberto', 'encosta', 'terreno plano',
   'nascente visível', 'rio próximo', 'erosão visível', 'muita pedra na superfície'
@@ -89,7 +94,6 @@ const BENFEITORIAS = [
 ]
 const LOCAIS = [
   'estrada asfaltada próxima', 'estrada de terra', 'isolada',
-  'energia elétrica', 'sem energia', 'agua encanada', 'sem agua encanada',
   'esgoto', 'fossa', 'sem esgoto', 'vizinho próximo', 'sem vizinhos'
 ]
 
@@ -139,7 +143,8 @@ function makeProperty(id, forcedPrice = null) {
     benfeitorias: ben,
     localizacao: Array.isArray(loc) ? loc : [loc],
     hidden,
-    revealed: { solo: false, agua: false, vento: false, insolacao: false }
+    revealed: { solo: false, agua: false, vento: false, insolacao: false },
+    utilities: { agua: false, energia: false }
   }
 }
 
@@ -223,6 +228,9 @@ function formatStatus(state) {
     lines.push(`Natural (visível): ${p.natural.join(', ')}`)
     lines.push(`Benfeitorias: ${p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'}`)
     lines.push(`Localização: ${p.localizacao.join(', ')}`)
+    const u = p.utilities || { agua: false, energia: false }
+    lines.push(`Água encanada: ${u.agua ? 'instalada' : 'disponível para instalar'}`)
+    lines.push(`Energia elétrica: ${u.energia ? 'instalada' : 'disponível para instalar'}`)
     const rev = p.revealed || {}
     lines.push(`Solo: ${rev.solo ? p.hidden.solo : 'desconhecido (pesquisa)'}`)
     lines.push(`Água subterrânea: ${rev.agua ? p.hidden.aguaSubterranea : 'desconhecida (pesquisa)'}`)
@@ -388,10 +396,11 @@ export default function Home() {
         `Natural (visível): ${prop.natural.join(', ')}.`,
         `Benfeitorias: ${prop.benfeitorias.length ? prop.benfeitorias.join(', ') : 'somente terreno'}.`,
         `Localização: ${prop.localizacao.join(', ')}.`,
+        'Água encanada e energia elétrica estão disponíveis para instalar (custa dinheiro e estresse).',
         'No início, pequenas plantações funcionam em qualquer terreno.',
         'Com volume alto, pesquisas pagas (solo, água, vento, insolação) passam a ser necessárias.',
         'Tudo afeta o estresse. Para cima ou para baixo.',
-        'Comandos de pesquisa: pesquisa solo | agua | vento | insolacao | completa',
+        'Comandos: instalar agua | instalar energia | pesquisa ...',
         'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
       ].filter(Boolean),
@@ -461,6 +470,36 @@ export default function Home() {
         addLogs(formatStatus(state))
         addLog('Olhar o status acalmou um pouco. Estresse -2.')
         break
+      case 'instalar': {
+        if (!state.property) {
+          addLog('Nenhuma propriedade.')
+          break
+        }
+        const tipo = arg
+        const info = INSTALL[tipo]
+        if (!info) {
+          addLog('Instalar: agua ou energia')
+          break
+        }
+        const u = state.property.utilities || { agua: false, energia: false }
+        if (u[tipo]) {
+          addLog(`${info.name} já está instalada.`)
+          break
+        }
+        if (state.money < info.cost) {
+          updateState({ stress: Math.min(100, state.stress + 5) })
+          addLog(`Sem dinheiro para instalar ${info.name} (custa R$${info.cost}). Estresse +5.`)
+          break
+        }
+        const newU = { ...u, [tipo]: true }
+        updateState({
+          money: state.money - info.cost,
+          stress: Math.min(100, state.stress + info.stress),
+          property: { ...state.property, utilities: newU }
+        })
+        addLog(`Instalou ${info.name} por R$${info.cost}. Estresse +${info.stress}.`)
+        break
+      }
       case 'pesquisa':
       case 'pesquisar': {
         if (!state.property) {
@@ -661,7 +700,7 @@ export default function Home() {
       case 'help':
       case '?':
         updateState({ stress: Math.max(0, state.stress - 1) })
-        addLog('Comandos: status, pesquisa [solo|agua|vento|insolacao|completa], fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Comandos: status, instalar [agua|energia], pesquisa [solo|agua|vento|insolacao|completa], fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
         addLog('Consultar a ajuda acalmou um pouco. Estresse -1.')
         break
       default:
@@ -696,7 +735,7 @@ export default function Home() {
       properties.map(p => {
         const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
         const ben = p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'
-        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   (Detalhes ocultos: solo, água, vento, insolação — pesquisas pagas depois)`
+        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   Água e energia: disponíveis para instalar depois\n   (Detalhes ocultos: solo, água subterrânea, vento, insolação)`
       }).join('\n\n') +
       `\n\nDigite o número da propriedade que deseja comprar:`
     : ''
