@@ -4,15 +4,7 @@ Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit 
 
 ## Interface
 
-Interface gráfica **mobile-first**, estilo visual de jogos portáteis clássicos (inspirado em Fire Red):
-- Fonte pixel (`Press Start 2P`)
-- Mapa da fazenda em destaque
-- Barra de estresse e status compacto
-- Mensagem curta (sem log permanente)
-- Overlay de noite
-- **Navegação do personagem** no mapa
-- **D-pad** no mobile + setas/WASD no desktop
-- Campo de comando para ações
+**Somente texto** (terminal).
 
 ## Características
 
@@ -29,7 +21,7 @@ Interface gráfica **mobile-first**, estilo visual de jogos portáteis clássico
 - Sistema de dia/noite baseado no horário real.
 - Clima conforme previsão do tempo do local escolhido (Open-Meteo, sem API key).
 - Persistência via Neon Postgres (serverless) ou localStorage como fallback.
-- Feito em Next.js (web, responsivo, mobile-first).
+- Feito em Next.js (web).
 
 ## Como rodar
 
@@ -52,23 +44,17 @@ Abra http://localhost:3000
 
 Sem `DATABASE_URL` o jogo funciona com localStorage.
 
-## Controles
-
-- **Mobile**: d-pad na tela
-- **Desktop**: setas ou WASD
-- Digite comandos no campo inferior
-
 ## Comandos
 
 - `status` / `s`: ver estresse, dinheiro, terra, plantas, animais
 - `fish` / `pescar`: pescar (reduz estresse)
-- `plant` / `plantar [tipo]`: plantar na posição atual
+- `plant` / `plantar [tipo]`: plantar (acalma; volume grande estressa)
 - `harvest` / `colher`: colher
-- `animal` / `criar [galinha|vaca|porco]`: criar animal na posição atual
+- `animal` / `criar [galinha|vaca|porco]`: criar animal
 - `coletar`: coletar produção dos animais
-- `expand` / `expandir`: expandir terra
+- `expand` / `expandir`: expandir terra (vira latifundiário, aumenta estresse)
 - `weather` / `clima`: buscar clima atual do local
-- `local <cidade>`: definir localização
+- `local <cidade>`: definir localização (ex: local Pindamonhangaba)
 - `reset`: recomeçar
 - `help`: ajuda
 
