@@ -5,19 +5,57 @@ import { useState, useEffect, useRef } from 'react'
 const STORAGE_KEY = 'dev-aposentado-save'
 const PLAYER_ID_KEY = 'dev-aposentado-player-id'
 
-const INITIAL_STATE = {
-  stress: 95,
-  money: 50000,
-  land: 5,
-  plants: [],
-  animals: [],
-  lastUpdate: Date.now(),
-  highStressTime: 0,
-  location: null,
-  logs: ['Você deu rage quit na big tech. Comprou uma pequena propriedade rural perto de uma cidade pequena. O estresse está nas alturas. As contas vão chegar. Não há objetivos bonitinhos.'],
-  alive: true,
-  billsInterval: 7 * 24 * 60 * 60 * 1000,
-  lastBill: Date.now(),
+const CLASSES = {
+  especialista: {
+    name: 'Desenvolvedor Especialista',
+    joke: 'Sabe exatamente por que o código quebrou. Só não sabe explicar para o PM.',
+    base: { logica: 10, carisma: 2, resiliencia: 4, gestao: 1 }
+  },
+  pm: {
+    name: 'Product Manager',
+    joke: 'Alinha expectativas. Principalmente as que ninguém pediu.',
+    base: { logica: 3, carisma: 9, resiliencia: 5, gestao: 7 }
+  },
+  devops: {
+    name: 'DevOps / SRE',
+    joke: 'O sistema está no ar. Você não está.',
+    base: { logica: 8, carisma: 3, resiliencia: 9, gestao: 4 }
+  },
+  qa: {
+    name: 'QA / Testador',
+    joke: 'Encontra o bug que o especialista jurou que não existia.',
+    base: { logica: 7, carisma: 4, resiliencia: 6, gestao: 2 }
+  },
+  gerente: {
+    name: 'Gerente de TI',
+    joke: '1% de chance de ser bom em tudo. Os outros 99% são reuniões.',
+    base: { logica: 4, carisma: 6, resiliencia: 3, gestao: 8 },
+    special: true
+  }
+}
+
+const COMPANIES = {
+  bigtech: {
+    name: 'Big Tech',
+    money: 180000,
+    stress: 98,
+    attrBonus: 2,
+    desc: 'Mais dinheiro e atributos melhores. Estresse no teto. Pode infartar no primeiro dia.'
+  },
+  grande: {
+    name: 'Empresa Grande',
+    money: 70000,
+    stress: 75,
+    attrBonus: 0,
+    desc: 'Atributos medianos. Estresse alto, mas não insano.'
+  },
+  local: {
+    name: 'Empresa Local',
+    money: 35000,
+    stress: 50,
+    attrBonus: -1,
+    desc: 'Atributos mais baixos. Estresse inicial bem menor.'
+  }
 }
 
 const ANIMAL_TYPES = {
@@ -26,11 +64,28 @@ const ANIMAL_TYPES = {
   porco: { cost: 800, stress: 2, produce: 80, name: 'porco' },
 }
 
+function rollAttributes(classKey, companyKey) {
+  const cls = CLASSES[classKey]
+  const comp = COMPANIES[companyKey]
+  let attrs = { ...cls.base }
+
+  if (cls.special && Math.random() < 0.01) {
+    attrs = { logica: 10, carisma: 10, resiliencia: 10, gestao: 10 }
+  } else {
+    Object.keys(attrs).forEach(k => {
+      attrs[k] = Math.max(1, Math.min(10, attrs[k] + (comp.attrBonus || 0)))
+    })
+  }
+  return attrs
+}
+
 export default function Home() {
-  const [state, setState] = useState(INITIAL_STATE)
+  const [state, setState] = useState(null)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [playerId, setPlayerId] = useState(null)
+  const [phase, setPhase] = useState('class') // class | company | playing
+  const [selectedClass, setSelectedClass] = useState(null)
   const logRef = useRef(null)
   const saveTimeout = useRef(null)
 
@@ -45,7 +100,7 @@ export default function Home() {
     fetch(`/api/game?playerId=${pid}`)
       .then(r => r.json())
       .then(data => {
-        if (data.state) {
+        if (data.state && data.state.classKey) {
           const parsed = data.state
           const now = Date.now()
           const elapsed = now - (parsed.lastUpdate || now)
@@ -54,41 +109,36 @@ export default function Home() {
             parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
           }
           setState(parsed)
-          addLog('Progresso carregado do banco de dados (Neon).')
+          setPhase('playing')
         } else {
           const saved = localStorage.getItem(STORAGE_KEY)
           if (saved) {
             try {
               const parsed = JSON.parse(saved)
-              const now = Date.now()
-              const elapsed = now - (parsed.lastUpdate || now)
-              parsed.lastUpdate = now
-              if (parsed.stress > 70) {
-                parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
+              if (parsed.classKey) {
+                const now = Date.now()
+                const elapsed = now - (parsed.lastUpdate || now)
+                parsed.lastUpdate = now
+                if (parsed.stress > 70) {
+                  parsed.highStressTime = (parsed.highStressTime || 0) + elapsed
+                }
+                setState(parsed)
+                setPhase('playing')
+                return
               }
-              setState(parsed)
-              addLog('Jogo carregado do localStorage (sem Neon configurado).')
             } catch (e) {}
           }
+          setPhase('class')
         }
       })
-      .catch(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        if (saved) {
-          try {
-            setState(JSON.parse(saved))
-            addLog('Carregado localmente (API offline).')
-          } catch (e) {}
-        }
-      })
+      .catch(() => setPhase('class'))
   }, [])
 
   useEffect(() => {
+    if (!state) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
-    }
-    if (playerId && state.alive) {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+    if (playerId && state.alive && phase === 'playing') {
       clearTimeout(saveTimeout.current)
       saveTimeout.current = setTimeout(() => {
         fetch('/api/game', {
@@ -98,14 +148,15 @@ export default function Home() {
         }).catch(() => {})
       }, 1500)
     }
-  }, [state, playerId])
+  }, [state, playerId, phase])
 
   const addLog = (msg) => {
-    setState(s => ({ ...s, logs: [...s.logs.slice(-40), msg] }))
+    setState(s => s ? { ...s, logs: [...s.logs.slice(-40), msg] } : s)
   }
 
   const updateState = (updates) => {
     setState(s => {
+      if (!s) return s
       const next = { ...s, ...updates, lastUpdate: Date.now() }
       const plantStress = next.plants.length > 15 ? Math.floor((next.plants.length - 15) / 5) * 2 : 0
       const animalStress = next.animals.length > 8 ? Math.floor((next.animals.length - 8) / 3) * 3 : 0
@@ -141,9 +192,67 @@ export default function Home() {
     })
   }
 
+  const startGame = (classKey, companyKey) => {
+    const cls = CLASSES[classKey]
+    const comp = COMPANIES[companyKey]
+    const attrs = rollAttributes(classKey, companyKey)
+    const isGod = attrs.logica === 10 && attrs.carisma === 10 && attrs.resiliencia === 10 && attrs.gestao === 10
+
+    const newState = {
+      stress: comp.stress,
+      money: comp.money,
+      land: 5,
+      plants: [],
+      animals: [],
+      lastUpdate: Date.now(),
+      highStressTime: 0,
+      location: null,
+      logs: [
+        `Você se aposentou de ${comp.name} como ${cls.name}.`,
+        cls.joke,
+        isGod ? 'MILAGRE: Você é o 1% que é bom em tudo. Os outros gerentes choram.' : '',
+        `Atributos — Lógica: ${attrs.logica} | Carisma: ${attrs.carisma} | Resiliência: ${attrs.resiliencia} | Gestão: ${attrs.gestao}`,
+        `Dinheiro inicial: R$${comp.money} | Estresse inicial: ${comp.stress}/100`,
+        'Comprou uma pequena propriedade rural perto de uma cidade pequena. As contas vão chegar. Não há objetivos bonitinhos.'
+      ].filter(Boolean),
+      alive: true,
+      billsInterval: 7 * 24 * 60 * 60 * 1000,
+      lastBill: Date.now(),
+      classKey,
+      className: cls.name,
+      companyKey,
+      companyName: comp.name,
+      attributes: attrs
+    }
+    setState(newState)
+    setPhase('playing')
+  }
+
   const handleCommand = async (cmd) => {
-    if (!state.alive) {
-      addLog('Você está morto. Recarregue para recomeçar ou digite "reset".')
+    if (phase === 'class') {
+      const key = cmd.toLowerCase().trim()
+      if (CLASSES[key]) {
+        setSelectedClass(key)
+        setPhase('company')
+        setInput('')
+        return
+      }
+      setInput('')
+      return
+    }
+    if (phase === 'company') {
+      const key = cmd.toLowerCase().trim()
+      if (COMPANIES[key] && selectedClass) {
+        startGame(selectedClass, key)
+        setInput('')
+        return
+      }
+      setInput('')
+      return
+    }
+
+    if (!state || !state.alive) {
+      addLog('Você está morto. Digite "reset".')
       return
     }
     const [action, ...args] = cmd.toLowerCase().trim().split(/\s+/)
@@ -153,6 +262,8 @@ export default function Home() {
       case 'status':
       case 's':
         addLog(`Estresse: ${state.stress}/100 | Dinheiro: R$${state.money.toFixed(0)} | Terra: ${state.land} ha | Plantas: ${state.plants.length} | Animais: ${state.animals.length}`)
+        addLog(`Classe: ${state.className} | Empresa: ${state.companyName}`)
+        addLog(`Lógica: ${state.attributes.logica} | Carisma: ${state.attributes.carisma} | Resiliência: ${state.attributes.resiliencia} | Gestão: ${state.attributes.gestao}`)
         if (state.location) addLog(`Local: ${state.location.name}`)
         if (state.plants.length > 15) addLog('Grande volume de plantação está te estressando.')
         if (state.animals.length > 8) addLog('Muitos animais para cuidar. Gestão estressante.')
@@ -297,8 +408,10 @@ export default function Home() {
         break
       case 'reset':
         localStorage.removeItem(STORAGE_KEY)
-        setState(INITIAL_STATE)
-        addLog('Jogo resetado.')
+        setState(null)
+        setSelectedClass(null)
+        setPhase('class')
+        addLog('Jogo resetado. Escolha sua classe.')
         break
       case 'help':
       case '?':
@@ -312,26 +425,40 @@ export default function Home() {
   const onSubmit = (e) => {
     e.preventDefault()
     if (input.trim()) {
-      addLog(`> ${input}`)
+      if (phase === 'playing' && state) {
+        addLog(`> ${input}`)
+      }
       handleCommand(input)
       setInput('')
     }
   }
 
+  const classPrompt = `Escolha sua carreira de origem:\n\n` +
+    Object.entries(CLASSES).map(([k, v]) => `${k} — ${v.name}\n   ${v.joke}`).join('\n') +
+    `\n\nDigite o nome da classe (especialista, pm, devops, qa, gerente):`
+
+  const companyPrompt = selectedClass
+    ? `Você escolheu: ${CLASSES[selectedClass].name}\n\nEscolha a empresa de origem:\n\n` +
+      Object.entries(COMPANIES).map(([k, v]) => `${k} — ${v.name}\n   ${v.desc}\n   Dinheiro: R$${v.money} | Estresse inicial: ${v.stress}`).join('\n\n') +
+      `\n\nDigite: bigtech, grande ou local`
+    : ''
+
   return (
     <div className="terminal">
       <pre className="log" ref={logRef}>
-        {state.logs.join('\n')}
+        {phase === 'class' && classPrompt}
+        {phase === 'company' && companyPrompt}
+        {phase === 'playing' && state && state.logs.join('\n')}
         {loading && '\nCarregando...'}
-        {!state.alive && '\n=== GAME OVER ==='}
+        {phase === 'playing' && state && !state.alive && '\n=== GAME OVER ==='}
       </pre>
       <form onSubmit={onSubmit} className="input-line">
         <span>> </span>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="digite um comando (help)"
-          disabled={!state.alive && input !== 'reset'}
+          placeholder={phase === 'class' ? 'especialista / pm / devops / qa / gerente' : phase === 'company' ? 'bigtech / grande / local' : 'comando (help)'}
+          disabled={phase === 'playing' && state && !state.alive && input !== 'reset'}
           autoFocus
         />
       </form>
