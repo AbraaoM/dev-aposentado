@@ -22,11 +22,23 @@ Hobby project: simulação de um dev que se aposenta de big tech, dá rage quit 
 
 | Empresa | Dinheiro | Estresse | Atributos |
 |---------|----------|----------|-----------|
-| `bigtech` | R$180.000 | 98 | +2 (melhor) |
-| `grande` | R$70.000 | 75 | base |
-| `local` | R$35.000 | 50 | -1 (pior) |
+| `bigtech` | R$450.000 | 98 | +2 (melhor) |
+| `grande` | R$180.000 | 75 | base |
+| `local` | R$90.000 | 50 | -1 (pior) |
 
 Big Tech pode infartar até no primeiro dia.
+
+### Escolha de propriedade
+
+Depois da classe e empresa, o jogo gera de 5 a 20 propriedades disponíveis. Cada uma tem:
+
+- Tamanho (ha)
+- Preço
+- Características naturais (solo, relevo, água etc.)
+- Benfeitorias (casa, curral, cerca, poço etc.)
+- Localização (estrada, energia, água encanada, esgoto etc.)
+
+O dinheiro inicial foi ajustado para dar para comprar e sobrar.
 
 ### Atributos
 
@@ -75,7 +87,7 @@ Sem `DATABASE_URL` o jogo funciona com localStorage.
 
 ## Comandos (após criação)
 
-- `status` / `s`: ver estresse, dinheiro, terra, plantas, animais e atributos
+- `status` / `s`: ver estresse, dinheiro, terra, plantas, animais, atributos e propriedade
 - `fish` / `pescar`: pescar (reduz estresse)
 - `plant` / `plantar [tipo]`: plantar (acalma; volume grande estressa)
 - `harvest` / `colher`: colher
