@@ -72,7 +72,7 @@ const NATURAL = [
 const BENFEITORIAS = [
   'casa simples', 'casa grande', 'galpão', 'curral', 'cerca nova',
   'cerca velha', 'poço', 'caixa d\'agua', 'estrada interna', 'pomar velho',
-  'sem benfeitorias', 'rancho abandonado'
+  'rancho abandonado'
 ]
 const LOCAIS = [
   'estrada asfaltada próxima', 'estrada de terra', 'isolada',
@@ -104,14 +104,20 @@ function makeProperty(id, forcedPrice = null) {
   }
   price = Math.max(350000, Math.min(40000000, price))
   const nat = pick(NATURAL, 1 + Math.floor(Math.random() * 2))
-  const ben = pick(BENFEITORIAS, 1 + Math.floor(Math.random() * 2))
+  let ben
+  if (Math.random() < 0.35) {
+    ben = [] // somente terreno, nada
+  } else {
+    ben = pick(BENFEITORIAS, 1 + Math.floor(Math.random() * 2))
+    if (!Array.isArray(ben)) ben = [ben]
+  }
   const loc = pick(LOCAIS, 2 + Math.floor(Math.random() * 2))
   return {
     id,
     ha,
     price,
     natural: Array.isArray(nat) ? nat : [nat],
-    benfeitorias: Array.isArray(ben) ? ben : [ben],
+    benfeitorias: ben,
     localizacao: Array.isArray(loc) ? loc : [loc]
   }
 }
@@ -182,7 +188,7 @@ function formatStatus(state) {
     lines.push('---')
     lines.push(`Propriedade: ${p.ha} ha | Pago: R$${p.price}`)
     lines.push(`Natural: ${p.natural.join(', ')}`)
-    lines.push(`Benfeitorias: ${p.benfeitorias.join(', ')}`)
+    lines.push(`Benfeitorias: ${p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'}`)
     lines.push(`Localização: ${p.localizacao.join(', ')}`)
   }
   lines.push('============================')
@@ -336,7 +342,7 @@ export default function Home() {
         `Comprou propriedade ${prop.id}: ${prop.ha} ha por R$${prop.price}.`,
         `Sobra: R$${remaining}.`,
         `Natural: ${prop.natural.join(', ')}.`,
-        `Benfeitorias: ${prop.benfeitorias.join(', ')}.`,
+        `Benfeitorias: ${prop.benfeitorias.length ? prop.benfeitorias.join(', ') : 'somente terreno'}.`,
         `Localização: ${prop.localizacao.join(', ')}.`,
         'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
@@ -586,7 +592,8 @@ export default function Home() {
     ? `Propriedades disponíveis (${properties.length}):\n\n` +
       properties.map(p => {
         const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
-        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural: ${p.natural.join(', ')}\n   Benfeitorias: ${p.benfeitorias.join(', ')}\n   Localização: ${p.localizacao.join(', ')}`
+        const ben = p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'
+        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural: ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}`
       }).join('\n\n') +
       `\n\nDigite o número da propriedade que deseja comprar:`
     : ''
