@@ -751,7 +751,7 @@ export default function Home() {
         {phase === 'playing' && state && !state.alive && '\n=== GAME OVER ==='}
       </pre>
       <form onSubmit={onSubmit} className="input-line">
-        <span>> </span>
+        <span>{'> '}</span>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
