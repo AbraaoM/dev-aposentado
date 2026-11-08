@@ -65,11 +65,11 @@ const ANIMAL_TYPES = {
 }
 
 const RESEARCH = {
-  solo: { cost: 8000, name: 'análise de solo' },
-  agua: { cost: 12000, name: 'pesquisa de água subterrânea' },
-  vento: { cost: 6000, name: 'estudo de vento' },
-  insolacao: { cost: 5000, name: 'estudo de insolação' },
-  completa: { cost: 25000, name: 'pesquisa completa' }
+  solo: { cost: 8000, stress: 4, name: 'análise de solo' },
+  agua: { cost: 12000, stress: 6, name: 'pesquisa de água subterrânea' },
+  vento: { cost: 6000, stress: 3, name: 'estudo de vento' },
+  insolacao: { cost: 5000, stress: 2, name: 'estudo de insolação' },
+  completa: { cost: 25000, stress: 8, name: 'pesquisa completa' }
 }
 
 const VISIBLE_NATURAL = [
@@ -349,10 +349,12 @@ export default function Home() {
       if (Date.now() - next.lastBill > next.billsInterval) {
         const bill = 2000 + next.land * 100 + next.animals.length * 50
         next.money -= bill
+        next.stress = Math.min(100, next.stress + 8)
         next.lastBill = Date.now()
-        next.logs = [...next.logs, `Conta chegou: -R$${bill}. Patrimônio corroído se você não produzir.`]
+        next.logs = [...next.logs, `Conta chegou: -R$${bill}. Estresse +8. Patrimônio corroído se você não produzir.`]
         if (next.money < 0) {
-          next.logs = [...next.logs, 'Você ficou sem dinheiro. A propriedade está em risco.']
+          next.stress = Math.min(100, next.stress + 15)
+          next.logs = [...next.logs, 'Você ficou sem dinheiro. Estresse disparou. A propriedade está em risco.']
         }
       }
       return next
@@ -388,6 +390,7 @@ export default function Home() {
         `Localização: ${prop.localizacao.join(', ')}.`,
         'No início, pequenas plantações funcionam em qualquer terreno.',
         'Com volume alto, pesquisas pagas (solo, água, vento, insolação) passam a ser necessárias.',
+        'Tudo afeta o estresse. Para cima ou para baixo.',
         'Comandos de pesquisa: pesquisa solo | agua | vento | insolacao | completa',
         'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
@@ -454,7 +457,9 @@ export default function Home() {
     switch (action) {
       case 'status':
       case 's':
+        updateState({ stress: Math.max(0, state.stress - 2) })
         addLogs(formatStatus(state))
+        addLog('Olhar o status acalmou um pouco. Estresse -2.')
         break
       case 'pesquisa':
       case 'pesquisar': {
@@ -469,7 +474,8 @@ export default function Home() {
           break
         }
         if (state.money < info.cost) {
-          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}).`)
+          updateState({ stress: Math.min(100, state.stress + 5) })
+          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}). Estresse +5.`)
           break
         }
         const rev = { ...(state.property.revealed || {}) }
@@ -480,23 +486,25 @@ export default function Home() {
         }
         updateState({
           money: state.money - info.cost,
+          stress: Math.min(100, state.stress + info.stress),
           property: { ...state.property, revealed: rev }
         })
-        addLog(`Comprou ${info.name} por R$${info.cost}. Detalhes revelados no status.`)
+        addLog(`Comprou ${info.name} por R$${info.cost}. Estresse +${info.stress}. Detalhes revelados no status.`)
         if (state.plants.length >= 20) {
-          addLog('Com volume alto, conhecer o terreno reduz o estresse de gestão.')
+          addLog('Com volume alto, conhecer o terreno reduz o estresse de gestão a longo prazo.')
         }
         break
       }
       case 'fish':
       case 'pescar':
         updateState({ stress: Math.max(0, state.stress - 15), money: state.money + 50 })
-        addLog('Você pescou no lago. Acalmou um pouco. +R$50 de peixe.')
+        addLog('Você pescou no lago. Acalmou bastante. Estresse -15. +R$50 de peixe.')
         break
       case 'plant':
       case 'plantar':
         if (state.money < 100) {
-          addLog('Sem dinheiro para sementes.')
+          updateState({ stress: Math.min(100, state.stress + 3) })
+          addLog('Sem dinheiro para sementes. Estresse +3.')
           break
         }
         const newPlantCount = state.plants.length + 1
@@ -507,7 +515,7 @@ export default function Home() {
           stress: Math.max(0, Math.min(100, state.stress + plantStressChange)),
           plants: [...state.plants, { type: arg || 'milho', plantedAt: Date.now(), growthDays: 3 }]
         })
-        addLog(`Plantou ${arg || 'milho'}. Plantar acalma, mas gestão de volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
+        addLog(`Plantou ${arg || 'milho'}. Estresse ${plantStressChange > 0 ? '+' : ''}${plantStressChange}. Plantar acalma, mas volume grande estressa.${newPlantCount > 15 ? ' (volume alto!)' : ''}`)
         if (newPlantCount >= 20) {
           addLog('Volume alto. Pesquisas do terreno passam a ser importantes para viabilidade.')
         }
@@ -515,12 +523,14 @@ export default function Home() {
       case 'harvest':
       case 'colher':
         if (state.plants.length === 0) {
-          addLog('Nada para colher.')
+          updateState({ stress: Math.min(100, state.stress + 2) })
+          addLog('Nada para colher. Estresse +2.')
           break
         }
         const ready = state.plants.filter(p => (Date.now() - p.plantedAt) > p.growthDays * 24 * 60 * 60 * 1000 / 10)
         if (ready.length === 0) {
-          addLog('Plantas ainda crescendo. Elas crescem em uma fração do tempo real.')
+          updateState({ stress: Math.min(100, state.stress + 1) })
+          addLog('Plantas ainda crescendo. Estresse +1.')
           break
         }
         updateState({
@@ -528,10 +538,10 @@ export default function Home() {
           stress: Math.max(0, state.stress - 5),
           plants: state.plants.filter(p => !ready.includes(p))
         })
-        addLog(`Colheu ${ready.length} plantas. +R$${ready.length * 300}. Um pouco menos de estresse.`)
+        addLog(`Colheu ${ready.length} plantas. Estresse -5. +R$${ready.length * 300}.`)
         break
       case 'animal':
-      case 'criar':
+      case 'criar': {
         const tipo = arg || 'galinha'
         const info = ANIMAL_TYPES[tipo]
         if (!info) {
@@ -539,7 +549,8 @@ export default function Home() {
           break
         }
         if (state.money < info.cost) {
-          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}).`)
+          updateState({ stress: Math.min(100, state.stress + 4) })
+          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost}). Estresse +4.`)
           break
         }
         updateState({
@@ -547,12 +558,14 @@ export default function Home() {
           stress: Math.max(0, Math.min(100, state.stress + info.stress)),
           animals: [...state.animals, { type: tipo, boughtAt: Date.now() }]
         })
-        addLog(`Criou ${info.name}. ${info.stress < 0 ? 'Acalma um pouco.' : 'A gestão pode estressar.'}`)
+        addLog(`Criou ${info.name}. Estresse ${info.stress > 0 ? '+' : ''}${info.stress}. ${info.stress < 0 ? 'Acalma um pouco.' : 'A gestão pode estressar.'}`)
         break
+      }
       case 'coletar':
       case 'produzir':
         if (state.animals.length === 0) {
-          addLog('Nenhum animal.')
+          updateState({ stress: Math.min(100, state.stress + 2) })
+          addLog('Nenhum animal. Estresse +2.')
           break
         }
         let total = 0
@@ -561,25 +574,27 @@ export default function Home() {
           if (info) total += info.produce
         })
         updateState({ money: state.money + total, stress: Math.max(0, state.stress - 3) })
-        addLog(`Coletou produção dos animais: +R$${total}.`)
+        addLog(`Coletou produção dos animais: +R$${total}. Estresse -3.`)
         break
       case 'expand':
       case 'expandir':
         if (state.money < 10000) {
-          addLog('Precisa de mais dinheiro para expandir e virar latifundiário.')
+          updateState({ stress: Math.min(100, state.stress + 6) })
+          addLog('Precisa de mais dinheiro para expandir. Estresse +6.')
           break
         }
         updateState({
           money: state.money - 10000,
           land: state.land + 5,
-          stress: state.stress + 25
+          stress: Math.min(100, state.stress + 25)
         })
-        addLog('Expandiu a propriedade. Atividades estressantes para virar latifundiário. Estresse aumentou.')
+        addLog('Expandiu a propriedade. Estresse +25. Atividades estressantes para virar latifundiário.')
         break
       case 'weather':
       case 'clima':
         if (!state.location) {
-          addLog('Defina uma localização primeiro com "local <cidade>"')
+          updateState({ stress: Math.min(100, state.stress + 2) })
+          addLog('Defina uma localização primeiro com "local <cidade>". Estresse +2.')
           break
         }
         setLoading(true)
@@ -590,24 +605,26 @@ export default function Home() {
           const cur = data.current
           addLog(`Clima atual em ${state.location.name}: ${cur.temperature_2m}°C, precipitação ${cur.precipitation}mm, código ${cur.weather_code}`)
           if (cur.precipitation > 5) {
-            updateState({ stress: state.stress + 5 })
-            addLog('Chuva forte. Mais estresse para cuidar das coisas.')
+            updateState({ stress: Math.min(100, state.stress + 5) })
+            addLog('Chuva forte. Estresse +5.')
           } else if (cur.temperature_2m > 30) {
-            updateState({ stress: state.stress + 3 })
-            addLog('Calor. Estressante.')
+            updateState({ stress: Math.min(100, state.stress + 3) })
+            addLog('Calor. Estresse +3.')
           } else {
             updateState({ stress: Math.max(0, state.stress - 2) })
-            addLog('Clima bom. Um pouco mais calmo.')
+            addLog('Clima bom. Estresse -2.')
           }
         } catch (e) {
-          addLog('Erro ao buscar clima.')
+          updateState({ stress: Math.min(100, state.stress + 1) })
+          addLog('Erro ao buscar clima. Estresse +1.')
         }
         setLoading(false)
         break
       case 'local':
       case 'location':
         if (!arg) {
-          addLog('Uso: local <nome da cidade>')
+          updateState({ stress: Math.min(100, state.stress + 1) })
+          addLog('Uso: local <nome da cidade>. Estresse +1.')
           break
         }
         setLoading(true)
@@ -618,14 +635,17 @@ export default function Home() {
           if (data.results && data.results[0]) {
             const loc = data.results[0]
             updateState({
-              location: { name: loc.name, lat: loc.latitude, lon: loc.longitude, timezone: loc.timezone }
+              location: { name: loc.name, lat: loc.latitude, lon: loc.longitude, timezone: loc.timezone },
+              stress: Math.max(0, state.stress - 1)
             })
-            addLog(`Localização definida: ${loc.name}, ${loc.country}. Lat ${loc.latitude}, Lon ${loc.longitude}`)
+            addLog(`Localização definida: ${loc.name}, ${loc.country}. Estresse -1.`)
           } else {
-            addLog('Cidade não encontrada.')
+            updateState({ stress: Math.min(100, state.stress + 2) })
+            addLog('Cidade não encontrada. Estresse +2.')
           }
         } catch (e) {
-          addLog('Erro na geocodificação.')
+          updateState({ stress: Math.min(100, state.stress + 2) })
+          addLog('Erro na geocodificação. Estresse +2.')
         }
         setLoading(false)
         break
@@ -640,10 +660,13 @@ export default function Home() {
         break
       case 'help':
       case '?':
+        updateState({ stress: Math.max(0, state.stress - 1) })
         addLog('Comandos: status, pesquisa [solo|agua|vento|insolacao|completa], fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Consultar a ajuda acalmou um pouco. Estresse -1.')
         break
       default:
-        addLog('Comando desconhecido. Digite help.')
+        updateState({ stress: Math.min(100, state.stress + 1) })
+        addLog('Comando desconhecido. Estresse +1. Digite help.')
     }
   }
 
