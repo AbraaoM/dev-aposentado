@@ -64,11 +64,16 @@ const ANIMAL_TYPES = {
   porco: { cost: 800, stress: 2, produce: 80, name: 'porco' },
 }
 
-const NATURAL = [
-  'solo fértil', 'solo ácido', 'muita pedra', 'área alagada', 'mata nativa',
-  'pasto aberto', 'encosta', 'terreno plano', 'nascente', 'rio próximo',
-  'muito sol', 'sombra de morro', 'erosão visível'
+const VISIBLE_NATURAL = [
+  'área alagada', 'mata nativa', 'pasto aberto', 'encosta', 'terreno plano',
+  'nascente visível', 'rio próximo', 'erosão visível', 'muita pedra na superfície'
 ]
+const HIDDEN = {
+  solo: ['solo fértil', 'solo ácido', 'solo arenoso', 'solo argiloso', 'solo pedregoso profundo'],
+  aguaSubterranea: ['boa água para poço', 'pouca água', 'sem água subterrânea', 'água salobra'],
+  vento: ['vento forte norte', 'vento moderado leste', 'vento fraco', 'vento constante oeste', 'pouco vento'],
+  insolacao: ['alta insolação', 'insolação moderada', 'baixa insolação (sombra)', 'muito sol o dia todo']
+}
 const BENFEITORIAS = [
   'casa simples', 'casa grande', 'galpão', 'curral', 'cerca nova',
   'cerca velha', 'poço', 'caixa d\'agua', 'estrada interna', 'pomar velho',
@@ -103,22 +108,29 @@ function makeProperty(id, forcedPrice = null) {
     else price = 20000000 + Math.floor(Math.random() * 20000000)
   }
   price = Math.max(350000, Math.min(40000000, price))
-  const nat = pick(NATURAL, 1 + Math.floor(Math.random() * 2))
+  const nat = pick(VISIBLE_NATURAL, 1 + Math.floor(Math.random() * 2))
   let ben
   if (Math.random() < 0.35) {
-    ben = [] // somente terreno, nada
+    ben = []
   } else {
     ben = pick(BENFEITORIAS, 1 + Math.floor(Math.random() * 2))
     if (!Array.isArray(ben)) ben = [ben]
   }
   const loc = pick(LOCAIS, 2 + Math.floor(Math.random() * 2))
+  const hidden = {
+    solo: pick(HIDDEN.solo),
+    aguaSubterranea: pick(HIDDEN.aguaSubterranea),
+    vento: pick(HIDDEN.vento),
+    insolacao: pick(HIDDEN.insolacao)
+  }
   return {
     id,
     ha,
     price,
     natural: Array.isArray(nat) ? nat : [nat],
     benfeitorias: ben,
-    localizacao: Array.isArray(loc) ? loc : [loc]
+    localizacao: Array.isArray(loc) ? loc : [loc],
+    hidden
   }
 }
 
@@ -187,9 +199,17 @@ function formatStatus(state) {
   if (p) {
     lines.push('---')
     lines.push(`Propriedade: ${p.ha} ha | Pago: R$${p.price}`)
-    lines.push(`Natural: ${p.natural.join(', ')}`)
+    lines.push(`Natural (visível): ${p.natural.join(', ')}`)
     lines.push(`Benfeitorias: ${p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'}`)
     lines.push(`Localização: ${p.localizacao.join(', ')}`)
+    if (p.hidden && p.revealed) {
+      lines.push(`Solo: ${p.hidden.solo}`)
+      lines.push(`Água subterrânea: ${p.hidden.aguaSubterranea}`)
+      lines.push(`Vento: ${p.hidden.vento}`)
+      lines.push(`Insolação: ${p.hidden.insolacao}`)
+    } else {
+      lines.push('(Atributos ocultos: solo, água para poço, vento, insolação — use "investigar")')
+    }
   }
   lines.push('============================')
   if (state.location) lines.splice(6, 0, `Local:        ${state.location.name}`)
@@ -341,9 +361,10 @@ export default function Home() {
         `Dinheiro inicial: R$${comp.money} | Estresse inicial: ${comp.stress}/100`,
         `Comprou propriedade ${prop.id}: ${prop.ha} ha por R$${prop.price}.`,
         `Sobra: R$${remaining}.`,
-        `Natural: ${prop.natural.join(', ')}.`,
+        `Natural (visível): ${prop.natural.join(', ')}.`,
         `Benfeitorias: ${prop.benfeitorias.length ? prop.benfeitorias.join(', ') : 'somente terreno'}.`,
         `Localização: ${prop.localizacao.join(', ')}.`,
+        'Alguns detalhes (solo, água subterrânea, vento, insolação) só aparecem depois de investigar.',
         'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
       ].filter(Boolean),
@@ -355,7 +376,7 @@ export default function Home() {
       companyKey,
       companyName: comp.name,
       attributes: attrs,
-      property: prop
+      property: { ...prop, revealed: false }
     }
     setState(newState)
     setPhase('playing')
@@ -410,6 +431,22 @@ export default function Home() {
       case 'status':
       case 's':
         addLogs(formatStatus(state))
+        break
+      case 'investigar':
+      case 'analisar':
+        if (!state.property) {
+          addLog('Nenhuma propriedade.')
+          break
+        }
+        if (state.property.revealed) {
+          addLog('Você já investigou esta propriedade.')
+          break
+        }
+        updateState({
+          stress: Math.min(100, state.stress + 5),
+          property: { ...state.property, revealed: true }
+        })
+        addLog('Você investigou o terreno (custo de estresse). Detalhes ocultos revelados no status.')
         break
       case 'fish':
       case 'pescar':
@@ -560,7 +597,7 @@ export default function Home() {
         break
       case 'help':
       case '?':
-        addLog('Comandos: status, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Comandos: status, investigar, fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
         break
       default:
         addLog('Comando desconhecido. Digite help.')
@@ -593,7 +630,7 @@ export default function Home() {
       properties.map(p => {
         const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
         const ben = p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'
-        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural: ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}`
+        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   (Detalhes ocultos: solo, água, vento, insolação)`
       }).join('\n\n') +
       `\n\nDigite o número da propriedade que deseja comprar:`
     : ''
