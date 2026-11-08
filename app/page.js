@@ -37,21 +37,21 @@ const CLASSES = {
 const COMPANIES = {
   bigtech: {
     name: 'Big Tech',
-    money: 180000,
+    money: 450000,
     stress: 98,
     attrBonus: 2,
     desc: 'Mais dinheiro e atributos melhores. Estresse no teto. Pode infartar no primeiro dia.'
   },
   grande: {
     name: 'Empresa Grande',
-    money: 70000,
+    money: 180000,
     stress: 75,
     attrBonus: 0,
     desc: 'Atributos medianos. Estresse alto, mas não insano.'
   },
   local: {
     name: 'Empresa Local',
-    money: 35000,
+    money: 90000,
     stress: 50,
     attrBonus: -1,
     desc: 'Atributos mais baixos. Estresse inicial bem menor.'
@@ -62,6 +62,60 @@ const ANIMAL_TYPES = {
   galinha: { cost: 200, stress: -3, produce: 30, name: 'galinha' },
   vaca: { cost: 2000, stress: 5, produce: 200, name: 'vaca' },
   porco: { cost: 800, stress: 2, produce: 80, name: 'porco' },
+}
+
+const NATURAL = [
+  'solo fértil', 'solo ácido', 'muita pedra', 'área alagada', 'mata nativa',
+  'pasto aberto', 'encosta', 'terreno plano', 'nascente', 'rio próximo',
+  'muito sol', 'sombra de morro', 'erosão visível'
+]
+const BENFEITORIAS = [
+  'casa simples', 'casa grande', 'galpão', 'curral', 'cerca nova',
+  'cerca velha', 'poço', 'caixa d\'agua', 'estrada interna', 'pomar velho',
+  'sem benfeitorias', 'rancho abandonado'
+]
+const LOCAIS = [
+  'estrada asfaltada próxima', 'estrada de terra', 'isolada',
+  'energia elétrica', 'sem energia', 'agua encanada', 'sem agua encanada',
+  'esgoto', 'fossa', 'sem esgoto', 'vizinho próximo', 'sem vizinhos'
+]
+
+function pick(arr, n = 1) {
+  const copy = [...arr]
+  const res = []
+  for (let i = 0; i < n && copy.length; i++) {
+    const idx = Math.floor(Math.random() * copy.length)
+    res.push(copy.splice(idx, 1)[0])
+  }
+  return n === 1 ? res[0] : res
+}
+
+function generateProperties() {
+  const count = 5 + Math.floor(Math.random() * 16) // 5 a 20
+  const props = []
+  for (let i = 1; i <= count; i++) {
+    const ha = 2 + Math.floor(Math.random() * 28) // 2 a 30 ha
+    const basePrice = ha * (8000 + Math.floor(Math.random() * 7000))
+    const nat = pick(NATURAL, 1 + Math.floor(Math.random() * 2))
+    const ben = pick(BENFEITORIAS, 1 + Math.floor(Math.random() * 2))
+    const loc = pick(LOCAIS, 2 + Math.floor(Math.random() * 2))
+    let price = basePrice
+    if (loc.includes('energia elétrica')) price += 15000
+    if (loc.includes('agua encanada')) price += 12000
+    if (loc.includes('esgoto')) price += 8000
+    if (loc.includes('estrada asfaltada próxima')) price += 20000
+    if (loc.includes('isolada') || loc.includes('sem energia')) price -= 10000
+    price = Math.max(20000, price)
+    props.push({
+      id: i,
+      ha,
+      price,
+      natural: Array.isArray(nat) ? nat : [nat],
+      benfeitorias: Array.isArray(ben) ? ben : [ben],
+      localizacao: Array.isArray(loc) ? loc : [loc]
+    })
+  }
+  return props
 }
 
 function rollAttributes(classKey, companyKey) {
@@ -81,6 +135,7 @@ function rollAttributes(classKey, companyKey) {
 
 function formatStatus(state) {
   const a = state.attributes || { logica: '-', carisma: '-', resiliencia: '-', gestao: '-' }
+  const p = state.property
   const lines = [
     '========== STATUS ==========',
     `Dinheiro:     R$${Number(state.money || 0).toFixed(0)}`,
@@ -96,8 +151,15 @@ function formatStatus(state) {
     `Carisma:      ${a.carisma}/10`,
     `Resiliência:   ${a.resiliencia}/10`,
     `Gestão:        ${a.gestao}/10`,
-    '============================'
   ]
+  if (p) {
+    lines.push('---')
+    lines.push(`Propriedade: ${p.ha} ha | Pago: R$${p.price}`)
+    lines.push(`Natural: ${p.natural.join(', ')}`)
+    lines.push(`Benfeitorias: ${p.benfeitorias.join(', ')}`)
+    lines.push(`Localização: ${p.localizacao.join(', ')}`)
+  }
+  lines.push('============================')
   if (state.location) lines.splice(6, 0, `Local:        ${state.location.name}`)
   if ((state.plants?.length || 0) > 15) lines.push('Grande volume de plantação está te estressando.')
   if ((state.animals?.length || 0) > 8) lines.push('Muitos animais para cuidar. Gestão estressante.')
@@ -111,6 +173,8 @@ export default function Home() {
   const [playerId, setPlayerId] = useState(null)
   const [phase, setPhase] = useState('class')
   const [selectedClass, setSelectedClass] = useState(null)
+  const [selectedCompany, setSelectedCompany] = useState(null)
+  const [properties, setProperties] = useState([])
   const logRef = useRef(null)
   const saveTimeout = useRef(null)
 
@@ -125,7 +189,7 @@ export default function Home() {
     fetch(`/api/game?playerId=${pid}`)
       .then(r => r.json())
       .then(data => {
-        if (data.state && data.state.classKey) {
+        if (data.state && data.state.classKey && data.state.property) {
           const parsed = data.state
           const now = Date.now()
           const elapsed = now - (parsed.lastUpdate || now)
@@ -140,7 +204,7 @@ export default function Home() {
           if (saved) {
             try {
               const parsed = JSON.parse(saved)
-              if (parsed.classKey) {
+              if (parsed.classKey && parsed.property) {
                 const now = Date.now()
                 const elapsed = now - (parsed.lastUpdate || now)
                 parsed.lastUpdate = now
@@ -221,16 +285,17 @@ export default function Home() {
     })
   }
 
-  const startGame = (classKey, companyKey) => {
+  const startGame = (classKey, companyKey, prop) => {
     const cls = CLASSES[classKey]
     const comp = COMPANIES[companyKey]
     const attrs = rollAttributes(classKey, companyKey)
     const isGod = attrs.logica === 10 && attrs.carisma === 10 && attrs.resiliencia === 10 && attrs.gestao === 10
+    const remaining = comp.money - prop.price
 
     const newState = {
       stress: comp.stress,
-      money: comp.money,
-      land: 5,
+      money: remaining,
+      land: prop.ha,
       plants: [],
       animals: [],
       lastUpdate: Date.now(),
@@ -242,7 +307,12 @@ export default function Home() {
         isGod ? 'MILAGRE: Você é o 1% que é bom em tudo. Os outros gerentes choram.' : '',
         `Atributos — Lógica: ${attrs.logica} | Carisma: ${attrs.carisma} | Resiliência: ${attrs.resiliencia} | Gestão: ${attrs.gestao}`,
         `Dinheiro inicial: R$${comp.money} | Estresse inicial: ${comp.stress}/100`,
-        'Comprou uma pequena propriedade rural perto de uma cidade pequena. As contas vão chegar. Não há objetivos bonitinhos.',
+        `Comprou propriedade ${prop.id}: ${prop.ha} ha por R$${prop.price}.`,
+        `Sobra: R$${remaining}.`,
+        `Natural: ${prop.natural.join(', ')}.`,
+        `Benfeitorias: ${prop.benfeitorias.join(', ')}.`,
+        `Localização: ${prop.localizacao.join(', ')}.`,
+        'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
       ].filter(Boolean),
       alive: true,
@@ -252,7 +322,8 @@ export default function Home() {
       className: cls.name,
       companyKey,
       companyName: comp.name,
-      attributes: attrs
+      attributes: attrs,
+      property: prop
     }
     setState(newState)
     setPhase('playing')
@@ -273,7 +344,22 @@ export default function Home() {
     if (phase === 'company') {
       const key = cmd.toLowerCase().trim()
       if (COMPANIES[key] && selectedClass) {
-        startGame(selectedClass, key)
+        setSelectedCompany(key)
+        const props = generateProperties()
+        setProperties(props)
+        setPhase('property')
+        setInput('')
+        return
+      }
+      setInput('')
+      return
+    }
+    if (phase === 'property') {
+      const id = parseInt(cmd.trim(), 10)
+      const prop = properties.find(p => p.id === id)
+      const comp = COMPANIES[selectedCompany]
+      if (prop && prop.price <= comp.money) {
+        startGame(selectedClass, selectedCompany, prop)
         setInput('')
         return
       }
@@ -435,6 +521,8 @@ export default function Home() {
         localStorage.removeItem(STORAGE_KEY)
         setState(null)
         setSelectedClass(null)
+        setSelectedCompany(null)
+        setProperties([])
         setPhase('class')
         addLog('Jogo resetado. Escolha sua classe.')
         break
@@ -468,11 +556,21 @@ export default function Home() {
       `\n\nDigite: bigtech, grande ou local`
     : ''
 
+  const propertyPrompt = properties.length
+    ? `Propriedades disponíveis (${properties.length}):\n\n` +
+      properties.map(p => {
+        const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
+        return `#${p.id} — ${p.ha} ha — R$${p.price}${can}\n   Natural: ${p.natural.join(', ')}\n   Benfeitorias: ${p.benfeitorias.join(', ')}\n   Localização: ${p.localizacao.join(', ')}`
+      }).join('\n\n') +
+      `\n\nDigite o número da propriedade que deseja comprar:`
+    : ''
+
   return (
     <div className="terminal">
       <pre className="log" ref={logRef}>
         {phase === 'class' && classPrompt}
         {phase === 'company' && companyPrompt}
+        {phase === 'property' && propertyPrompt}
         {phase === 'playing' && state && state.logs.join('\n')}
         {loading && '\nCarregando...'}
         {phase === 'playing' && state && !state.alive && '\n=== GAME OVER ==='}
@@ -482,7 +580,12 @@ export default function Home() {
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder={phase === 'class' ? 'especialista / pm / devops / qa / gerente' : phase === 'company' ? 'bigtech / grande / local' : 'comando (help)'}
+          placeholder={
+            phase === 'class' ? 'especialista / pm / devops / qa / gerente' :
+            phase === 'company' ? 'bigtech / grande / local' :
+            phase === 'property' ? 'número da propriedade' :
+            'comando (help)'
+          }
           disabled={phase === 'playing' && state && !state.alive && input !== 'reset'}
           autoFocus
         />
