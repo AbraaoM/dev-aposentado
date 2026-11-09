@@ -9,28 +9,33 @@ const CLASSES = {
   especialista: {
     name: 'Desenvolvedor Especialista',
     joke: 'Sabe exatamente por que o código quebrou. Só não sabe explicar para o PM.',
-    base: { logica: 10, carisma: 2, resiliencia: 4, gestao: 1 }
+    base: { logica: 10, carisma: 2, resiliencia: 4, gestao: 1 },
+    moneyMult: 1.15
   },
   pm: {
     name: 'Product Manager',
     joke: 'Alinha expectativas. Principalmente as que ninguém pediu.',
-    base: { logica: 3, carisma: 9, resiliencia: 5, gestao: 7 }
+    base: { logica: 3, carisma: 9, resiliencia: 5, gestao: 7 },
+    moneyMult: 1.25
   },
   devops: {
     name: 'DevOps / SRE',
     joke: 'O sistema está no ar. Você não está.',
-    base: { logica: 8, carisma: 3, resiliencia: 9, gestao: 4 }
+    base: { logica: 8, carisma: 3, resiliencia: 9, gestao: 4 },
+    moneyMult: 1.2
   },
   qa: {
     name: 'QA / Testador',
     joke: 'Encontra o bug que o especialista jurou que não existia.',
-    base: { logica: 7, carisma: 4, resiliencia: 6, gestao: 2 }
+    base: { logica: 7, carisma: 4, resiliencia: 6, gestao: 2 },
+    moneyMult: 0.85
   },
   gerente: {
     name: 'Gerente de TI',
     joke: '1% de chance de ser bom em tudo. Os outros 99% são reuniões.',
     base: { logica: 4, carisma: 6, resiliencia: 3, gestao: 8 },
-    special: true
+    special: true,
+    moneyMult: 1.4
   }
 }
 
@@ -107,6 +112,12 @@ function pick(arr, n = 1) {
   return n === 1 ? res[0] : res
 }
 
+function calcStartingMoney(classKey, companyKey) {
+  const cls = CLASSES[classKey]
+  const comp = COMPANIES[companyKey]
+  return Math.floor(comp.money * (cls.moneyMult || 1))
+}
+
 function makeProperty(id, forcedPrice = null) {
   const ha = 2 + Math.floor(Math.random() * 48)
   let price
@@ -148,15 +159,16 @@ function makeProperty(id, forcedPrice = null) {
   }
 }
 
-function generateProperties() {
+function generateProperties(classKey, companyKey) {
   const count = 5 + Math.floor(Math.random() * 16)
   const props = []
   for (let i = 1; i <= count; i++) {
     props.push(makeProperty(i))
   }
 
-  const localMoney = COMPANIES.local.money
-  const bigMoney = COMPANIES.bigtech.money
+  const starting = calcStartingMoney(classKey, companyKey)
+  const localMoney = COMPANIES.local.money * 0.85
+  const bigMoney = COMPANIES.bigtech.money * 1.4
 
   const cheapForLocal = props.filter(p => p.price <= localMoney).length
   if (cheapForLocal < 1) {
@@ -374,7 +386,8 @@ export default function Home() {
     const comp = COMPANIES[companyKey]
     const attrs = rollAttributes(classKey, companyKey)
     const isGod = attrs.logica === 10 && attrs.carisma === 10 && attrs.resiliencia === 10 && attrs.gestao === 10
-    const remaining = comp.money - prop.price
+    const starting = calcStartingMoney(classKey, companyKey)
+    const remaining = starting - prop.price
 
     const newState = {
       stress: comp.stress,
@@ -390,9 +403,9 @@ export default function Home() {
         cls.joke,
         isGod ? 'MILAGRE: Você é o 1% que é bom em tudo. Os outros gerentes choram.' : '',
         `Atributos — Lógica: ${attrs.logica} | Carisma: ${attrs.carisma} | Resiliência: ${attrs.resiliencia} | Gestão: ${attrs.gestao}`,
-        `Dinheiro inicial: R$${comp.money} | Estresse inicial: ${comp.stress}/100`,
-        `Comprou propriedade ${prop.id}: ${prop.ha} ha por R$${prop.price}.`,
-        `Sobra: R$${remaining}.`,
+        `Dinheiro inicial (cargo + empresa): R$${starting.toLocaleString('pt-BR')} | Estresse inicial: ${comp.stress}/100`,
+        `Comprou propriedade ${prop.id}: ${prop.ha} ha por R$${prop.price.toLocaleString('pt-BR')}.`,
+        `Sobra: R$${remaining.toLocaleString('pt-BR')}.`,
         `Natural (visível): ${prop.natural.join(', ')}.`,
         `Benfeitorias: ${prop.benfeitorias.length ? prop.benfeitorias.join(', ') : 'somente terreno'}.`,
         `Localização: ${prop.localizacao.join(', ')}.`,
@@ -434,7 +447,7 @@ export default function Home() {
       const key = cmd.toLowerCase().trim()
       if (COMPANIES[key] && selectedClass) {
         setSelectedCompany(key)
-        const props = generateProperties()
+        const props = generateProperties(selectedClass, key)
         setProperties(props)
         setPhase('property')
         setInput('')
@@ -446,8 +459,8 @@ export default function Home() {
     if (phase === 'property') {
       const id = parseInt(cmd.trim(), 10)
       const prop = properties.find(p => p.id === id)
-      const comp = COMPANIES[selectedCompany]
-      if (prop && prop.price <= comp.money) {
+      const starting = calcStartingMoney(selectedClass, selectedCompany)
+      if (prop && prop.price <= starting) {
         startGame(selectedClass, selectedCompany, prop)
         setInput('')
         return
@@ -726,18 +739,24 @@ export default function Home() {
 
   const companyPrompt = selectedClass
     ? `Você escolheu: ${CLASSES[selectedClass].name}\n\nEscolha a empresa de origem:\n\n` +
-      Object.entries(COMPANIES).map(([k, v]) => `${k} — ${v.name}\n   ${v.desc}\n   Dinheiro: R$${v.money.toLocaleString('pt-BR')} | Estresse inicial: ${v.stress}`).join('\n\n') +
+      Object.entries(COMPANIES).map(([k, v]) => {
+        const money = calcStartingMoney(selectedClass, k)
+        return `${k} — ${v.name}\n   ${v.desc}\n   Dinheiro inicial: R$${money.toLocaleString('pt-BR')} | Estresse inicial: ${v.stress}`
+      }).join('\n\n') +
       `\n\nDigite: bigtech, grande ou local`
     : ''
 
-  const propertyPrompt = properties.length
-    ? `Propriedades disponíveis (${properties.length}):\n\n` +
-      properties.map(p => {
-        const can = p.price <= COMPANIES[selectedCompany].money ? '' : ' (caro demais)'
-        const ben = p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'
-        return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   Água e energia: disponíveis para instalar depois\n   (Detalhes ocultos: solo, água subterrânea, vento, insolação)`
-      }).join('\n\n') +
-      `\n\nDigite o número da propriedade que deseja comprar:`
+  const propertyPrompt = (selectedClass && selectedCompany && properties.length)
+    ? (() => {
+        const starting = calcStartingMoney(selectedClass, selectedCompany)
+        return `Dinheiro disponível para compra: R$${starting.toLocaleString('pt-BR')}\n\nPropriedades disponíveis (${properties.length}):\n\n` +
+          properties.map(p => {
+            const can = p.price <= starting ? '' : ' (caro demais)'
+            const ben = p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'
+            return `#${p.id} — ${p.ha} ha — R$${p.price.toLocaleString('pt-BR')}${can}\n   Natural (visível): ${p.natural.join(', ')}\n   Benfeitorias: ${ben}\n   Localização: ${p.localizacao.join(', ')}\n   Água e energia: disponíveis para instalar depois\n   (Detalhes ocultos: solo, água subterrânea, vento, insolação)`
+          }).join('\n\n') +
+          `\n\nDigite o número da propriedade que deseja comprar:`
+      })()
     : ''
 
   return (
@@ -751,7 +770,7 @@ export default function Home() {
         {phase === 'playing' && state && !state.alive && '\n=== GAME OVER ==='}
       </pre>
       <form onSubmit={onSubmit} className="input-line">
-        <span>{'> '}</span>
+        <span>> </span>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
