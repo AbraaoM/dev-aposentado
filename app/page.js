@@ -82,6 +82,17 @@ const INSTALL = {
   energia: { cost: 18000, stress: 12, name: 'energia elétrica' }
 }
 
+const CONSTRUCTIONS = {
+  casa_simples: { cost: 45000, stress: 14, name: 'casa simples' },
+  casa_grande: { cost: 120000, stress: 22, name: 'casa grande' },
+  galpao: { cost: 70000, stress: 16, name: 'galpão' },
+  curral: { cost: 25000, stress: 10, name: 'curral' },
+  cerca: { cost: 8000, stress: 6, name: 'cerca' },
+  poco: { cost: 18000, stress: 9, name: 'poço' },
+  pomar: { cost: 12000, stress: 5, name: 'pomar' },
+  rancho: { cost: 20000, stress: 8, name: 'rancho' }
+}
+
 const VISIBLE_NATURAL = [
   'área alagada', 'mata nativa', 'pasto aberto', 'encosta', 'terreno plano',
   'nascente visível', 'rio próximo', 'erosão visível', 'muita pedra na superfície'
@@ -238,7 +249,9 @@ function formatStatus(state) {
     lines.push('---')
     lines.push(`Propriedade: ${p.ha} ha | Pago: R$${p.price}`)
     lines.push(`Natural (visível): ${p.natural.join(', ')}`)
-    lines.push(`Benfeitorias: ${p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'}`)
+    lines.push(`Benfeitorias originais: ${p.benfeitorias.length ? p.benfeitorias.join(', ') : 'somente terreno'}`)
+    const built = p.constructions || []
+    lines.push(`Construções feitas: ${built.length ? built.map(c => c.name).join(', ') : 'nenhuma'}`)
     lines.push(`Localização: ${p.localizacao.join(', ')}`)
     const u = p.utilities || { agua: false, energia: false }
     lines.push(`Água encanada: ${u.agua ? 'instalada' : 'disponível para instalar'}`)
@@ -413,7 +426,7 @@ export default function Home() {
         'No início, pequenas plantações funcionam em qualquer terreno.',
         'Com volume alto, pesquisas pagas (solo, água, vento, insolação) passam a ser necessárias.',
         'Tudo afeta o estresse. Para cima ou para baixo.',
-        'Comandos: instalar agua | instalar energia | pesquisa ...',
+        'Comandos: construir (menu) | construir <tipo> | instalar agua | instalar energia | pesquisa ...',
         'As contas vão chegar. Não há objetivos bonitinhos.',
         'Digite status para ver seus atributos e recursos.'
       ].filter(Boolean),
@@ -425,7 +438,7 @@ export default function Home() {
       companyKey,
       companyName: comp.name,
       attributes: attrs,
-      property: prop
+      property: { ...prop, constructions: [] }
     }
     setState(newState)
     setPhase('playing')
@@ -710,10 +723,55 @@ export default function Home() {
         setPhase('class')
         addLog('Jogo resetado. Escolha sua classe.')
         break
+      case 'construir':
+      case 'construcao':
+      case 'construcoes': {
+        if (!state.property) {
+          addLog('Nenhuma propriedade.')
+          break
+        }
+        const tipo = arg
+        if (!tipo || tipo === 'menu' || tipo === 'lista') {
+          const built = (state.property.constructions || []).map(c => c.type)
+          const lines = ['========== MENU DE CONSTRUÇÕES ==========']
+          Object.entries(CONSTRUCTIONS).forEach(([k, v]) => {
+            const already = built.includes(k) ? ' (já construída)' : ''
+            lines.push(`${k} — ${v.name} — R$${v.cost.toLocaleString('pt-BR')} — estresse +${v.stress}${already}`)
+          })
+          lines.push('=========================================')
+          lines.push('Digite: construir <tipo>  (ex: construir casa_simples)')
+          addLogs(lines)
+          updateState({ stress: Math.max(0, state.stress - 1) })
+          break
+        }
+        const info = CONSTRUCTIONS[tipo]
+        if (!info) {
+          addLog('Tipo desconhecido. Digite construir (sem argumento) para ver o menu.')
+          break
+        }
+        const built = state.property.constructions || []
+        if (built.some(c => c.type === tipo)) {
+          addLog(`${info.name} já foi construída.`)
+          break
+        }
+        if (state.money < info.cost) {
+          updateState({ stress: Math.min(100, state.stress + 4) })
+          addLog(`Sem dinheiro para ${info.name} (custa R$${info.cost.toLocaleString('pt-BR')}). Estresse +4.`)
+          break
+        }
+        const newConstructions = [...built, { type: tipo, name: info.name, builtAt: Date.now() }]
+        updateState({
+          money: state.money - info.cost,
+          stress: Math.min(100, state.stress + info.stress),
+          property: { ...state.property, constructions: newConstructions }
+        })
+        addLog(`Construiu ${info.name} por R$${info.cost.toLocaleString('pt-BR')}. Estresse +${info.stress}.`)
+        break
+      }
       case 'help':
       case '?':
         updateState({ stress: Math.max(0, state.stress - 1) })
-        addLog('Comandos: status, instalar [agua|energia], pesquisa [solo|agua|vento|insolacao|completa], fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
+        addLog('Comandos: status, construir [tipo|menu], instalar [agua|energia], pesquisa [solo|agua|vento|insolacao|completa], fish/pescar, plant/plantar [tipo], harvest/colher, animal/criar [galinha|vaca|porco], coletar, expand/expandir, weather/clima, local <cidade>, reset, help')
         addLog('Consultar a ajuda acalmou um pouco. Estresse -1.')
         break
       default:
